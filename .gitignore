@@ -35,3 +35,25 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Poetry
+poetry.lock
+.venv/
+
+# Beets test files
+test/test.db
+test/rsrc/

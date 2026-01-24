@@ -20,15 +20,29 @@ For the album [Rent](https://musicbrainz.org/release/ac802446-a6f9-4624-8487-db8
 
 ## Installation
 
-### Install from source
+### Install from GitHub
+
+```bash
+pip install git+https://github.com/justinsalloum/beets-performers.git
+```
+
+### Install from source (for development)
 
 ```bash
 git clone https://github.com/justinsalloum/beets-performers.git
 cd beets-performers
-pip install -e .
+
+# Install Poetry if you don't have it
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Install dependencies and the plugin
+poetry install
+
+# Set up git hooks (runs tests before push)
+./setup-hooks.sh
 ```
 
-### Install via pip (when published)
+### Install via pip (when published to PyPI)
 
 ```bash
 pip install beets-performers
@@ -251,9 +265,111 @@ Use the manual command to update existing tracks:
 beet performers -f albumartist:"Various Artists"
 ```
 
+## Development
+
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/justinsalloum/beets-performers.git
+cd beets-performers
+
+# Install Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Install dependencies
+poetry install
+
+# Set up git hooks (runs tests before push)
+./setup-hooks.sh
+```
+
+### Running Tests
+
+The plugin includes a comprehensive test suite. Use Poetry's poe tasks:
+
+```bash
+# Run tests
+poetry run poe test
+
+# Run tests with coverage (HTML and terminal reports)
+poetry run poe test-with-coverage
+
+# View coverage report
+open htmlcov/index.html
+```
+
+Or use pytest directly:
+
+```bash
+# Run tests
+poetry run pytest -v
+
+# Run tests with coverage
+poetry run pytest --cov=beetsplug.performers --cov-report=html
+```
+
+### Code Quality
+
+Format and lint code using Ruff:
+
+```bash
+# Check formatting
+poetry run poe format-check
+
+# Auto-format code
+poetry run poe format
+
+# Run linter
+poetry run poe lint
+```
+
+### Git Hooks
+
+This project uses a pre-push hook to ensure code quality:
+
+```bash
+# Set up hooks (run once after cloning)
+./setup-hooks.sh
+```
+
+The pre-push hook automatically:
+- Runs the full test suite before pushing
+- Prevents pushing broken code
+- Can be bypassed with `git push --no-verify` (not recommended)
+
+### Continuous Integration
+
+GitHub Actions automatically runs on every push and pull request:
+
+**Test Job:**
+- Tests on Python 3.9, 3.10, 3.11, and 3.12
+- Runs full test suite
+- Uploads coverage to Codecov (Python 3.11 only)
+
+**Lint Job:**
+- Checks code formatting with Ruff
+- Runs linting checks
+
+All tests and checks must pass before code can be merged.
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! Here's how to contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests to ensure they pass (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure:
+- All tests pass
+- Code follows the existing style
+- New features include tests
+- Documentation is updated
 
 ## License
 

@@ -1,0 +1,13 @@
+include LICENSE
+include README.md
+include requirements.txt
+include pytest.ini
+include setup.cfg
+
+recursive-include beetsplug *.py
+recursive-exclude test *
+recursive-exclude .github *
+
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
