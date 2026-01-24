@@ -114,10 +114,13 @@ class PerformersPlugin(BeetsPlugin):
                 artist_string = separator.join(performers)
 
                 old_artist = item.artist
+                # Color code the diff (red for old, green for new)
+                old_colored, new_colored = ui.colordiff(old_artist, artist_string)
+
                 if pretend:
-                    self._log.info('Performers [PREVIEW]: {} | {} -> {}', item, old_artist, artist_string)
+                    self._log.info('Performers [PREVIEW]: {} | {} -> {}', item, old_colored, new_colored)
                 else:
-                    self._log.info('Performers: {} | {} -> {}', item, old_artist, artist_string)
+                    self._log.info('Performers: {} | {} -> {}', item, old_colored, new_colored)
                     item.artist = artist_string
                     item.store()
             else:
@@ -127,10 +130,13 @@ class PerformersPlugin(BeetsPlugin):
                 if self.config['fallback_to_albumartist'].get(bool):
                     if item.artist != item.albumartist:
                         old_artist = item.artist
+                        # Color code the diff (red for old, green for new)
+                        old_colored, new_colored = ui.colordiff(old_artist, item.albumartist)
+
                         if pretend:
-                            self._log.info('Performers [PREVIEW]: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
+                            self._log.info('Performers [PREVIEW]: {} | {} -> {} (fallback)', item, old_colored, new_colored)
                         else:
-                            self._log.info('Performers: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
+                            self._log.info('Performers: {} | {} -> {} (fallback)', item, old_colored, new_colored)
                             item.artist = item.albumartist
                             item.store()
 
