@@ -1,0 +1,80 @@
+# Example beets configuration with performers plugin
+# Copy the performers section to your ~/.config/beets/config.yaml file
+
+plugins: performers musicbrainz
+
+# MusicBrainz plugin configuration (required for performers to work)
+musicbrainz:
+  # Enable to get extra relationships data
+  extra_tags: [year, catalognum, country, media, label]
+
+# Performers plugin configuration
+performers:
+  # Automatically fetch performers during import
+  auto: true
+
+  # Re-fetch even if artist is already set
+  force: false
+
+  # Separator for multiple performers
+  separator: '; '
+
+  # Only include vocal performers
+  vocal_only: false
+
+  # Use albumartist if no performers found
+  fallback_to_albumartist: true
+
+  # Types of performer relationships to include
+  performer_types:
+    - vocal
+    - performer
+    - instrument
+    - vocals
+
+# Example configurations for different use cases:
+
+# ----------------------------------------
+# Use Case 1: Musicals & Soundtracks
+# Goal: Tag with vocalists only
+# ----------------------------------------
+# performers:
+#   auto: true
+#   vocal_only: true
+#   separator: ', '
+#   fallback_to_albumartist: true
+
+# ----------------------------------------
+# Use Case 2: All Performers
+# Goal: Include all performers (vocals and instruments)
+# ----------------------------------------
+# performers:
+#   auto: true
+#   vocal_only: false
+#   performer_types:
+#     - vocal
+#     - performer
+#     - instrument
+#   separator: '; '
+
+# ----------------------------------------
+# Use Case 3: Specific Instruments Only
+# Goal: Only include specific instrument types
+# ----------------------------------------
+# performers:
+#   auto: true
+#   vocal_only: false
+#   performer_types:
+#     - guitar
+#     - piano
+#     - drums
+#   separator: ', '
+
+# ----------------------------------------
+# Use Case 4: Manual Mode
+# Goal: Only fetch performers when manually requested
+# ----------------------------------------
+# performers:
+#   auto: false
+#   force: false
+# Then run: beet performers [query]
