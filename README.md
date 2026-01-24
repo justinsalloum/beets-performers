@@ -92,8 +92,14 @@ beet performers
 # Fetch performers for specific tracks
 beet performers artist:Larson
 
+# Preview changes without saving (dry-run mode)
+beet performers -p artist:Larson
+
 # Force re-fetch even if artist is already set
 beet performers -f artist:Larson
+
+# Combine flags: preview forced re-fetch
+beet performers -fp artist:Larson
 ```
 
 ## Configuration Examples

@@ -44,20 +44,29 @@ class PerformersPlugin(BeetsPlugin):
             action='store_true', default=False,
             help='re-fetch performers even if already present'
         )
+        cmd.parser.add_option(
+            '-p', '--pretend',
+            action='store_true', default=False,
+            help='preview changes without updating the database'
+        )
         cmd.func = self.command_func
         return [cmd]
 
     def command_func(self, lib, opts, args):
         """Command handler for manual performer fetching."""
         force = opts.force or self.config['force'].get(bool)
+        pretend = opts.pretend
 
         # Get items to process
         items = lib.items(ui.decargs(args))
 
-        self._log.info('Processing {} tracks...', len(items))
+        if pretend:
+            self._log.info('PRETEND MODE: Processing {} tracks (no changes will be saved)...', len(items))
+        else:
+            self._log.info('Processing {} tracks...', len(items))
 
         for item in items:
-            self.fetch_performers(item, force=force)
+            self.fetch_performers(item, force=force, pretend=pretend)
 
     def imported(self, session, task):
         """Hook called after items are imported."""
@@ -71,8 +80,14 @@ class PerformersPlugin(BeetsPlugin):
         for item in items:
             self.fetch_performers(item, force=force)
 
-    def fetch_performers(self, item, force=False):
-        """Fetch performer data for a single item and update artist field."""
+    def fetch_performers(self, item, force=False, pretend=False):
+        """Fetch performer data for a single item and update artist field.
+
+        Args:
+            item: The Item to process
+            force: Re-fetch even if artist is already set
+            pretend: Preview changes without saving to database
+        """
         # Skip if artist is already set and force is False
         if not force and item.artist and item.artist != item.albumartist:
             self._log.debug('Skipping {}: artist already set', item)
@@ -99,9 +114,12 @@ class PerformersPlugin(BeetsPlugin):
                 artist_string = separator.join(performers)
 
                 old_artist = item.artist
-                self._log.info('Performers: {} | {} -> {}', item, old_artist, artist_string)
-                item.artist = artist_string
-                item.store()
+                if pretend:
+                    self._log.info('Performers [PREVIEW]: {} | {} -> {}', item, old_artist, artist_string)
+                else:
+                    self._log.info('Performers: {} | {} -> {}', item, old_artist, artist_string)
+                    item.artist = artist_string
+                    item.store()
             else:
                 self._log.debug('No performers found for {}', item)
 
@@ -109,9 +127,12 @@ class PerformersPlugin(BeetsPlugin):
                 if self.config['fallback_to_albumartist'].get(bool):
                     if item.artist != item.albumartist:
                         old_artist = item.artist
-                        self._log.info('Performers: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
-                        item.artist = item.albumartist
-                        item.store()
+                        if pretend:
+                            self._log.info('Performers [PREVIEW]: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
+                        else:
+                            self._log.info('Performers: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
+                            item.artist = item.albumartist
+                            item.store()
 
         except musicbrainzngs.WebServiceError as e:
             self._log.error('MusicBrainz error for {}: {}', item, e)
