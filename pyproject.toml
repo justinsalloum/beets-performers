@@ -70,6 +70,9 @@ ignore = [
     "C901", # too complex
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["beetsplug", "test"]
+
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
