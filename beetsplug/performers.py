@@ -113,14 +113,15 @@ class PerformersPlugin(BeetsPlugin):
                 separator = self.config['separator'].get(str)
                 artist_string = separator.join(performers)
 
-                old_artist = item.artist
+                old_artist = item.artist or ''
                 # Color code the diff (red for old, green for new)
-                old_colored, new_colored = ui.colordiff(old_artist, artist_string)
+                old_colored = ui.colorize('text_error', old_artist)
+                new_colored = ui.colorize('text_success', artist_string)
 
                 if pretend:
-                    self._log.info('Performers [PREVIEW]: {} | {} -> {}', item, old_colored, new_colored)
+                    ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}")
                 else:
-                    self._log.info('Performers: {} | {} -> {}', item, old_colored, new_colored)
+                    ui.print_(f"Performers: {item} | {old_colored} -> {new_colored}")
                     item.artist = artist_string
                     item.store()
             else:
@@ -129,14 +130,15 @@ class PerformersPlugin(BeetsPlugin):
                 # Fallback to albumartist if configured
                 if self.config['fallback_to_albumartist'].get(bool):
                     if item.artist != item.albumartist:
-                        old_artist = item.artist
+                        old_artist = item.artist or ''
                         # Color code the diff (red for old, green for new)
-                        old_colored, new_colored = ui.colordiff(old_artist, item.albumartist)
+                        old_colored = ui.colorize('text_error', old_artist)
+                        new_colored = ui.colorize('text_success', item.albumartist)
 
                         if pretend:
-                            self._log.info('Performers [PREVIEW]: {} | {} -> {} (fallback)', item, old_colored, new_colored)
+                            ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)")
                         else:
-                            self._log.info('Performers: {} | {} -> {} (fallback)', item, old_colored, new_colored)
+                            ui.print_(f"Performers: {item} | {old_colored} -> {new_colored} (fallback)")
                             item.artist = item.albumartist
                             item.store()
 
