@@ -98,7 +98,8 @@ class PerformersPlugin(BeetsPlugin):
                 separator = self.config['separator'].get(str)
                 artist_string = separator.join(performers)
 
-                self._log.info('Setting artist for {}: {}', item, artist_string)
+                old_artist = item.artist
+                self._log.info('Performers: {} | {} -> {}', item, old_artist, artist_string)
                 item.artist = artist_string
                 item.store()
             else:
@@ -107,7 +108,8 @@ class PerformersPlugin(BeetsPlugin):
                 # Fallback to albumartist if configured
                 if self.config['fallback_to_albumartist'].get(bool):
                     if item.artist != item.albumartist:
-                        self._log.debug('Using albumartist as fallback for {}', item)
+                        old_artist = item.artist
+                        self._log.info('Performers: {} | {} -> {} (fallback)', item, old_artist, item.albumartist)
                         item.artist = item.albumartist
                         item.store()
 
