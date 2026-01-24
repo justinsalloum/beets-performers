@@ -1,13 +1,12 @@
 """Test configuration and utilities for beets-performers plugin tests."""
 
 import os
-import sys
-import tempfile
 import shutil
+import tempfile
 from unittest import TestCase
+
 from beets import config
 from beets.library import Library
-from beets.util import bytestring_path
 
 
 class TestHelper(TestCase):
@@ -17,18 +16,27 @@ class TestHelper(TestCase):
         """Set up test environment."""
         # Create temporary directory for test library
         self.temp_dir = tempfile.mkdtemp()
-        self.libdir = os.path.join(self.temp_dir, b'libdir' if isinstance(self.temp_dir, bytes) else 'libdir')
+        self.libdir = os.path.join(
+            self.temp_dir, b'libdir' if isinstance(self.temp_dir, bytes) else 'libdir'
+        )
         os.makedirs(self.libdir)
 
         # Set up test database
-        self.db_path = os.path.join(self.temp_dir, b'library.db' if isinstance(self.temp_dir, bytes) else 'library.db')
+        self.db_path = os.path.join(
+            self.temp_dir, b'library.db' if isinstance(self.temp_dir, bytes) else 'library.db'
+        )
+
+        # Configure beets for testing - load defaults but not user config
+        config.clear()
+        config.read(user=False, defaults=True)
+
+        # Set required config values for testing
+        config['timeout'] = 5.0
+        config['library'] = self.db_path
+        config['directory'] = self.libdir
 
         # Initialize library
         self.lib = Library(self.db_path, self.libdir)
-
-        # Configure beets for testing
-        config.clear()
-        config.read()
 
     def tearDown(self):
         """Clean up test environment."""
@@ -53,7 +61,9 @@ class TestHelper(TestCase):
             'artist': 'Test Artist',
             'albumartist': 'Test Album Artist',
             'album': 'Test Album',
-            'path': os.path.join(self.libdir, b'test.mp3' if isinstance(self.libdir, bytes) else 'test.mp3'),
+            'path': os.path.join(
+                self.libdir, b'test.mp3' if isinstance(self.libdir, bytes) else 'test.mp3'
+            ),
         }
         defaults.update(kwargs)
 

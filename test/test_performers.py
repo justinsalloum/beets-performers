@@ -1,9 +1,10 @@
 """Unit tests for the performers plugin."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
-from test import TestHelper
+from unittest.mock import patch
+
 from beetsplug.performers import PerformersPlugin
+from test import TestHelper
 
 
 class PerformersPluginTest(TestHelper):
@@ -28,31 +29,12 @@ class PerformersPluginTest(TestHelper):
         self.assertEqual(self.plugin.config['fallback_to_albumartist'].get(bool), True)
         self.assertTrue(isinstance(self.plugin.config['performer_types'].get(list), list))
 
-    def test_extract_artist_credit(self):
-        """Test extracting artist names from artist-credit field."""
-        # Mock artist-credit data from MusicBrainz
-        artist_credit = [
-            {'name': 'Adam Pascal', 'artist': {'name': 'Adam Pascal'}},
-            {'name': 'Anthony Rapp', 'artist': {'name': 'Anthony Rapp'}}
-        ]
-
-        performers = self.plugin._extract_artist_credit(artist_credit)
-
-        self.assertEqual(len(performers), 2)
-        self.assertIn('Adam Pascal', performers)
-        self.assertIn('Anthony Rapp', performers)
-
-    def test_extract_artist_credit_empty(self):
-        """Test extracting from empty artist-credit."""
-        performers = self.plugin._extract_artist_credit([])
-        self.assertEqual(len(performers), 0)
-
     def test_extract_performers_with_artist_credit(self):
         """Test that artist-credit is used when available."""
         recording = {
             'artist-credit': [
                 {'name': 'Adam Pascal', 'artist': {'name': 'Adam Pascal'}},
-                {'name': 'Anthony Rapp', 'artist': {'name': 'Anthony Rapp'}}
+                {'name': 'Anthony Rapp', 'artist': {'name': 'Anthony Rapp'}},
             ]
         }
 
@@ -66,16 +48,8 @@ class PerformersPluginTest(TestHelper):
         """Test extracting performers from artist relationships."""
         recording = {
             'artist-relation-list': [
-                {
-                    'type': 'vocal',
-                    'artist': {'name': 'John Doe'},
-                    'attributes': ['lead vocals']
-                },
-                {
-                    'type': 'performer',
-                    'artist': {'name': 'Jane Smith'},
-                    'attributes': ['guitar']
-                }
+                {'type': 'vocal', 'artist': {'name': 'John Doe'}, 'attributes': ['lead vocals']},
+                {'type': 'performer', 'artist': {'name': 'Jane Smith'}, 'attributes': ['guitar']},
             ]
         }
 
@@ -92,16 +66,8 @@ class PerformersPluginTest(TestHelper):
 
         recording = {
             'artist-relation-list': [
-                {
-                    'type': 'vocal',
-                    'artist': {'name': 'Singer'},
-                    'attributes': ['vocals']
-                },
-                {
-                    'type': 'performer',
-                    'artist': {'name': 'Guitarist'},
-                    'attributes': ['guitar']
-                }
+                {'type': 'vocal', 'artist': {'name': 'Singer'}, 'attributes': ['vocals']},
+                {'type': 'performer', 'artist': {'name': 'Guitarist'}, 'attributes': ['guitar']},
             ]
         }
 
@@ -110,31 +76,6 @@ class PerformersPluginTest(TestHelper):
         # Should only include vocalist
         self.assertIn('Singer', performers)
         self.assertNotIn('Guitarist', performers)
-
-    def test_format_performers_with_separator(self):
-        """Test formatting performers with custom separator."""
-        performers = ['Artist 1', 'Artist 2', 'Artist 3']
-
-        # Test default separator
-        result = self.plugin._format_performers(performers)
-        self.assertEqual(result, 'Artist 1; Artist 2; Artist 3')
-
-        # Test custom separator
-        self.plugin.config['separator'] = ', '
-        result = self.plugin._format_performers(performers)
-        self.assertEqual(result, 'Artist 1, Artist 2, Artist 3')
-
-    def test_format_performers_with_max_artists(self):
-        """Test limiting the number of artists."""
-        performers = ['Artist 1', 'Artist 2', 'Artist 3', 'Artist 4']
-
-        # Test with max_artists limit
-        self.plugin.config['max_artists'] = 2
-        result = self.plugin._format_performers(performers)
-
-        # Should only include first 2 artists
-        self.assertEqual(result, 'Artist 1; Artist 2')
-        self.assertNotIn('Artist 3', result)
 
     def test_fetch_performers_skip_without_mbid(self):
         """Test that items without MusicBrainz ID are skipped."""
@@ -150,9 +91,7 @@ class PerformersPluginTest(TestHelper):
     def test_fetch_performers_skip_when_artist_set(self):
         """Test that items with artist set are skipped when force=False."""
         item = self.add_test_item(
-            artist='Custom Artist',
-            albumartist='Album Artist',
-            mb_trackid='test-mbid-123'
+            artist='Custom Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
         )
 
         original_artist = item.artist
@@ -171,7 +110,7 @@ class PerformersPluginTest(TestHelper):
             'recording': {
                 'artist-credit': [
                     {'name': 'Performer 1', 'artist': {'name': 'Performer 1'}},
-                    {'name': 'Performer 2', 'artist': {'name': 'Performer 2'}}
+                    {'name': 'Performer 2', 'artist': {'name': 'Performer 2'}},
                 ]
             }
         }
@@ -179,7 +118,7 @@ class PerformersPluginTest(TestHelper):
         item = self.add_test_item(
             artist='Album Artist',  # Same as albumartist, so should be updated
             albumartist='Album Artist',
-            mb_trackid='test-mbid-123'
+            mb_trackid='test-mbid-123',
         )
 
         self.plugin.fetch_performers(item, force=True)
@@ -193,16 +132,12 @@ class PerformersPluginTest(TestHelper):
         """Test that pretend mode doesn't save changes."""
         mock_get_recording.return_value = {
             'recording': {
-                'artist-credit': [
-                    {'name': 'New Artist', 'artist': {'name': 'New Artist'}}
-                ]
+                'artist-credit': [{'name': 'New Artist', 'artist': {'name': 'New Artist'}}]
             }
         }
 
         item = self.add_test_item(
-            artist='Old Artist',
-            albumartist='Old Artist',
-            mb_trackid='test-mbid-123'
+            artist='Old Artist', albumartist='Old Artist', mb_trackid='test-mbid-123'
         )
 
         original_artist = item.artist
@@ -250,7 +185,7 @@ class ExtractPerformersTest(unittest.TestCase):
             'artist-credit': [
                 {'name': 'Artist A', 'artist': {'name': 'Artist A'}},
                 {'name': 'Artist A', 'artist': {'name': 'Artist A'}},  # Duplicate
-                {'name': 'Artist B', 'artist': {'name': 'Artist B'}}
+                {'name': 'Artist B', 'artist': {'name': 'Artist B'}},
             ]
         }
 

@@ -4,33 +4,38 @@ This plugin queries MusicBrainz for performer relationships on each track and
 replaces the artist field with the performers instead of using the albumartist.
 """
 
-from beets.plugins import BeetsPlugin
-from beets import ui
-from beets import config
-import musicbrainzngs
 import time
+
+import musicbrainzngs
+from beets import ui
+from beets.plugins import BeetsPlugin
 
 
 class PerformersPlugin(BeetsPlugin):
     def __init__(self):
-        super(PerformersPlugin, self).__init__()
+        super().__init__()
 
         # Configure MusicBrainz client
         musicbrainzngs.set_useragent(
-            "beets-performers-plugin",
-            "0.1",
-            "https://github.com/beetbox/beets"
+            'beets-performers-plugin', '0.1', 'https://github.com/beetbox/beets'
         )
 
         # Plugin configuration options
-        self.config.add({
-            'auto': True,  # Automatically fetch performers during import
-            'force': False,  # Re-fetch even if artist is already set
-            'separator': '; ',  # Separator for multiple performers
-            'vocal_only': False,  # Only include vocal performers
-            'fallback_to_albumartist': True,  # Use albumartist if no performers found
-            'performer_types': ['vocal', 'performer', 'instrument', 'vocals'],  # Types to include
-        })
+        self.config.add(
+            {
+                'auto': True,  # Automatically fetch performers during import
+                'force': False,  # Re-fetch even if artist is already set
+                'separator': '; ',  # Separator for multiple performers
+                'vocal_only': False,  # Only include vocal performers
+                'fallback_to_albumartist': True,  # Use albumartist if no performers found
+                'performer_types': [
+                    'vocal',
+                    'performer',
+                    'instrument',
+                    'vocals',
+                ],  # Types to include
+            }
+        )
 
         # Register as an import stage
         if self.config['auto']:
@@ -40,14 +45,18 @@ class PerformersPlugin(BeetsPlugin):
         """Add command for manual performer fetching."""
         cmd = ui.Subcommand('performers', help='fetch performer data for tracks')
         cmd.parser.add_option(
-            '-f', '--force',
-            action='store_true', default=False,
-            help='re-fetch performers even if already present'
+            '-f',
+            '--force',
+            action='store_true',
+            default=False,
+            help='re-fetch performers even if already present',
         )
         cmd.parser.add_option(
-            '-p', '--pretend',
-            action='store_true', default=False,
-            help='preview changes without updating the database'
+            '-p',
+            '--pretend',
+            action='store_true',
+            default=False,
+            help='preview changes without updating the database',
         )
         cmd.func = self.command_func
         return [cmd]
@@ -61,7 +70,9 @@ class PerformersPlugin(BeetsPlugin):
         items = lib.items(ui.decargs(args))
 
         if pretend:
-            self._log.info('PRETEND MODE: Processing {} tracks (no changes will be saved)...', len(items))
+            self._log.info(
+                'PRETEND MODE: Processing {} tracks (no changes will be saved)...', len(items)
+            )
         else:
             self._log.info('Processing {} tracks...', len(items))
 
@@ -118,9 +129,9 @@ class PerformersPlugin(BeetsPlugin):
                 old_colored, new_colored = ui._colordiff(old_artist, artist_string)
 
                 if pretend:
-                    ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}")
+                    ui.print_(f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}')
                 else:
-                    ui.print_(f"Performers: {item} | {old_colored} -> {new_colored}")
+                    ui.print_(f'Performers: {item} | {old_colored} -> {new_colored}')
                     item.artist = artist_string
                     item.store()
             else:
@@ -134,9 +145,13 @@ class PerformersPlugin(BeetsPlugin):
                         old_colored, new_colored = ui._colordiff(old_artist, item.albumartist)
 
                         if pretend:
-                            ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)")
+                            ui.print_(
+                                f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)'
+                            )
                         else:
-                            ui.print_(f"Performers: {item} | {old_colored} -> {new_colored} (fallback)")
+                            ui.print_(
+                                f'Performers: {item} | {old_colored} -> {new_colored} (fallback)'
+                            )
                             item.artist = item.albumartist
                             item.store()
 
@@ -153,8 +168,7 @@ class PerformersPlugin(BeetsPlugin):
 
             # Fetch recording with artist credits and relationships
             result = musicbrainzngs.get_recording_by_id(
-                mb_trackid,
-                includes=['artist-credits', 'artist-rels']
+                mb_trackid, includes=['artist-credits', 'artist-rels']
             )
 
             return result.get('recording')
@@ -172,7 +186,7 @@ class PerformersPlugin(BeetsPlugin):
             for credit in recording['artist-credit']:
                 if isinstance(credit, dict) and 'artist' in credit:
                     name = credit['artist'].get('name', '')
-                    if name:
+                    if name and name not in performers:
                         performers.append(name)
 
         # If no artist credits, try to get performers from relationships
