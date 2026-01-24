@@ -251,9 +251,67 @@ Use the manual command to update existing tracks:
 beet performers -f albumartist:"Various Artists"
 ```
 
+## Development
+
+### Running Tests
+
+The plugin includes a comprehensive test suite. To run tests:
+
+```bash
+# Install development dependencies
+pip install -e .[test]
+
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=beetsplug.performers --cov-report=html
+
+# View coverage report
+open htmlcov/index.html
+```
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+```
+
+### Continuous Integration
+
+GitHub Actions automatically runs tests on:
+- Python 3.8, 3.9, 3.10, 3.11, and 3.12
+- Every push to main/master and claude/** branches
+- Every pull request
+
+Tests must pass before code can be merged.
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! Here's how to contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests to ensure they pass (`pytest`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure:
+- All tests pass
+- Code follows the existing style
+- New features include tests
+- Documentation is updated
 
 ## License
 
