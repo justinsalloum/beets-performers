@@ -114,9 +114,8 @@ class PerformersPlugin(BeetsPlugin):
                 artist_string = separator.join(performers)
 
                 old_artist = item.artist or ''
-                # Color code the diff (red for old, green for new)
-                old_colored = ui.colorize('text_error', old_artist)
-                new_colored = ui.colorize('text_success', artist_string)
+                # Character-level diff highlighting (only changed chars colored)
+                old_colored, new_colored = ui._colordiff(old_artist, artist_string)
 
                 if pretend:
                     ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}")
@@ -131,9 +130,8 @@ class PerformersPlugin(BeetsPlugin):
                 if self.config['fallback_to_albumartist'].get(bool):
                     if item.artist != item.albumartist:
                         old_artist = item.artist or ''
-                        # Color code the diff (red for old, green for new)
-                        old_colored = ui.colorize('text_error', old_artist)
-                        new_colored = ui.colorize('text_success', item.albumartist)
+                        # Character-level diff highlighting (only changed chars colored)
+                        old_colored, new_colored = ui._colordiff(old_artist, item.albumartist)
 
                         if pretend:
                             ui.print_(f"Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)")
