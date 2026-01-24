@@ -1,0 +1,27 @@
+#!/bin/bash
+# Git pre-push hook to run tests before pushing
+
+echo "Running tests before push..."
+
+# Check if we're in a poetry environment
+if command -v poetry &>/dev/null && [ -f "pyproject.toml" ]; then
+    echo "Using Poetry to run tests..."
+    poetry run pytest -v
+    TEST_RESULT=$?
+else
+    # Fall back to direct pytest
+    echo "Using pytest directly..."
+    pytest -v
+    TEST_RESULT=$?
+fi
+
+if [ $TEST_RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ Tests failed! Push aborted."
+    echo "Fix the failing tests or use 'git push --no-verify' to skip this check."
+    exit 1
+fi
+
+echo ""
+echo "✅ All tests passed! Proceeding with push..."
+exit 0

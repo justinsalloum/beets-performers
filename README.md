@@ -20,15 +20,29 @@ For the album [Rent](https://musicbrainz.org/release/ac802446-a6f9-4624-8487-db8
 
 ## Installation
 
-### Install from source
+### Install from GitHub
+
+```bash
+pip install git+https://github.com/justinsalloum/beets-performers.git
+```
+
+### Install from source (for development)
 
 ```bash
 git clone https://github.com/justinsalloum/beets-performers.git
 cd beets-performers
-pip install -e .
+
+# Install Poetry if you don't have it
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Install dependencies and the plugin
+poetry install
+
+# Set up git hooks (runs tests before push)
+./setup-hooks.sh
 ```
 
-### Install via pip (when published)
+### Install via pip (when published to PyPI)
 
 ```bash
 pip install beets-performers
@@ -253,47 +267,91 @@ beet performers -f albumartist:"Various Artists"
 
 ## Development
 
-### Running Tests
-
-The plugin includes a comprehensive test suite. To run tests:
+### Setup Development Environment
 
 ```bash
-# Install development dependencies
-pip install -e .[test]
+# Clone the repository
+git clone https://github.com/justinsalloum/beets-performers.git
+cd beets-performers
 
+# Install Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Install dependencies
+poetry install
+
+# Set up git hooks (runs tests before push)
+./setup-hooks.sh
+```
+
+### Running Tests
+
+The plugin includes a comprehensive test suite. Use Poetry's poe tasks:
+
+```bash
 # Run tests
-pytest
+poetry run poe test
 
-# Run tests with coverage
-pytest --cov=beetsplug.performers --cov-report=html
+# Run tests with coverage (HTML and terminal reports)
+poetry run poe test-with-coverage
 
 # View coverage report
 open htmlcov/index.html
 ```
 
-### Pre-commit Hooks
-
-This project uses pre-commit hooks to ensure code quality:
+Or use pytest directly:
 
 ```bash
-# Install pre-commit
-pip install pre-commit
+# Run tests
+poetry run pytest -v
 
-# Install the git hooks
-pre-commit install
-
-# Run manually on all files
-pre-commit run --all-files
+# Run tests with coverage
+poetry run pytest --cov=beetsplug.performers --cov-report=html
 ```
+
+### Code Quality
+
+Format and lint code using Ruff:
+
+```bash
+# Check formatting
+poetry run poe format-check
+
+# Auto-format code
+poetry run poe format
+
+# Run linter
+poetry run poe lint
+```
+
+### Git Hooks
+
+This project uses a pre-push hook to ensure code quality:
+
+```bash
+# Set up hooks (run once after cloning)
+./setup-hooks.sh
+```
+
+The pre-push hook automatically:
+- Runs the full test suite before pushing
+- Prevents pushing broken code
+- Can be bypassed with `git push --no-verify` (not recommended)
 
 ### Continuous Integration
 
-GitHub Actions automatically runs tests on:
-- Python 3.8, 3.9, 3.10, 3.11, and 3.12
-- Every push to main/master and claude/** branches
-- Every pull request
+GitHub Actions automatically runs on every push and pull request:
 
-Tests must pass before code can be merged.
+**Test Job:**
+- Tests on Python 3.9, 3.10, 3.11, and 3.12
+- Runs full test suite
+- Uploads coverage to Codecov (Python 3.11 only)
+
+**Lint Job:**
+- Checks code formatting with Ruff
+- Runs linting checks
+
+All tests and checks must pass before code can be merged.
 
 ## Contributing
 

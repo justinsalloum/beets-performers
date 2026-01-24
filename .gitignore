@@ -49,3 +49,11 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Poetry
+poetry.lock
+.venv/
+
+# Beets test files
+test/test.db
+test/rsrc/
