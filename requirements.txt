@@ -1,0 +1,2 @@
+beets>=1.6.0
+musicbrainzngs>=0.7.1

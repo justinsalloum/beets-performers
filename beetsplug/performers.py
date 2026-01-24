@@ -1,215 +1,175 @@
-"""Beets plugin to use performer information as artist tags.
+"""Beets plugin to fetch performer credits from MusicBrainz and populate artist tags.
 
-This plugin extracts performer information from MusicBrainz recording relationships
-and uses it to populate the artist field instead of the albumartist. This is
-particularly useful for soundtracks, musicals, and classical music where the album
-artist (composer/creator) differs from the actual performers.
-
-Example: For "Rent" by Jonathan Larson, tracks will be tagged with the
-actual vocalists (e.g., Adam Pascal, Anthony Rapp) instead of Jonathan Larson.
+This plugin queries MusicBrainz for performer relationships on each track and
+replaces the artist field with the performers instead of using the albumartist.
 """
 
 from beets.plugins import BeetsPlugin
+from beets import ui
 from beets import config
-from collections import defaultdict
+import musicbrainzngs
+import time
 
 
 class PerformersPlugin(BeetsPlugin):
-    """Plugin to use performer credits as artist tags."""
-
     def __init__(self):
         super(PerformersPlugin, self).__init__()
 
-        # Default configuration
+        # Configure MusicBrainz client
+        musicbrainzngs.set_useragent(
+            "beets-performers-plugin",
+            "0.1",
+            "https://github.com/beetbox/beets"
+        )
+
+        # Plugin configuration options
         self.config.add({
-            'use_performers': True,
-            'always_include_vocals': True,
-            'include_instruments': False,
-            'instrument_roles': [],  # List of specific instruments to include (e.g., ['guitar', 'piano'])
-            'fallback_to_artist_credit': True,  # Use artist-credit if no performers found
-            'prefer_vocals': True,  # Prefer vocal performers over instrumental
-            'separator': ', ',
-            'max_artists': 0,  # 0 = no limit
-            'vocals_only': False,  # Only use vocals, ignore other performers
+            'auto': True,  # Automatically fetch performers during import
+            'force': False,  # Re-fetch even if artist is already set
+            'separator': '; ',  # Separator for multiple performers
+            'vocal_only': False,  # Only include vocal performers
+            'fallback_to_albumartist': True,  # Use albumartist if no performers found
+            'performer_types': ['vocal', 'performer', 'instrument', 'vocals'],  # Types to include
         })
 
-        # Register listener for MusicBrainz track extraction
-        self.register_listener('mb_track_extract', self.mb_track_extract)
-        self._log.debug('Performers plugin initialized')
-
-    def mb_track_extract(self, data, **kwargs):
-        """Extract performer information from raw MusicBrainz recording data.
-
-        This hook is called when beets extracts track metadata from MusicBrainz.
-        We use it to access the raw recording relationships which contain
-        performer information.
-
-        Args:
-            data: Dict containing the raw MusicBrainz recording data
-            **kwargs: Additional arguments (info, track, etc.)
-
-        Returns:
-            Dict of additional fields to add to the TrackInfo object
-        """
-        if not self.config['use_performers'].get(bool):
-            return {}
-
-        # Get the recording object from MusicBrainz data
-        recording = data.get('recording', {})
-
-        # Extract performers from relationships
-        performers = self._extract_performers_from_recording(recording)
-
-        if performers:
-            # Store performers for later use
-            self._log.debug(
-                'Performers: Found {0} performer(s): {1}',
-                len(performers), ', '.join(performers)
-            )
-            # Return dict to override the artist field
-            return {'artist': self._format_performers(performers)}
-        elif self.config['fallback_to_artist_credit'].get(bool):
-            # Use artist-credit from the recording
-            artist_credit = recording.get('artist-credit', [])
-            if artist_credit:
-                artists = self._extract_artist_credit(artist_credit)
-                if artists:
-                    self._log.debug(
-                        'Performers: Using artist-credit: {0}',
-                        ', '.join(artists)
-                    )
-                    return {'artist': self._format_performers(artists)}
-
-        return {}
-
-    def _extract_performers_from_recording(self, recording):
-        """Extract performer names from MusicBrainz recording relationships.
-
-        Args:
-            recording: MusicBrainz recording object with relationships
-
-        Returns:
-            List of performer names
-        """
-        performers = []
-        vocals = []
-        instruments = []
-
-        # Get relationship data
-        relations = recording.get('artist-rels', []) or recording.get('relations', [])
-
-        if not relations:
-            self._log.debug('Performers: No relationships found in recording')
-            return []
-
-        always_vocals = self.config['always_include_vocals'].get(bool)
-        include_instruments = self.config['include_instruments'].get(bool)
-        instrument_roles = self.config['instrument_roles'].get(list)
-        vocals_only = self.config['vocals_only'].get(bool)
-
-        # Process each relationship
-        for rel in relations:
-            # Get relationship type and attributes
-            rel_type = rel.get('type', '')
-            attributes = rel.get('attributes', []) or rel.get('attribute-values', {}).keys()
-
-            # Get artist information
-            artist = rel.get('artist', {})
-            artist_name = artist.get('name', '')
-
-            if not artist_name:
-                continue
-
-            # Check if this is a vocal performance
-            is_vocal = (
-                rel_type in ['vocal', 'vocals', 'performance'] and
-                any(attr in ['vocal', 'vocals', 'lead vocals', 'background vocals',
-                           'choir vocals', 'spoken vocals']
-                    for attr in (attributes if isinstance(attributes, list) else []))
-            ) or 'vocal' in str(attributes).lower()
-
-            # Check if this is an instrument performance
-            is_instrument = (
-                rel_type in ['instrument', 'performer', 'performance'] and
-                not is_vocal
-            )
-
-            # Categorize the performer
-            if is_vocal:
-                vocals.append(artist_name)
-                self._log.debug(
-                    'Performers: Found vocalist: {0} (type: {1}, attrs: {2})',
-                    artist_name, rel_type, attributes
-                )
-            elif is_instrument and not vocals_only:
-                # Check if we should include this instrument
-                if include_instruments or instrument_roles:
-                    if not instrument_roles or any(
-                        role.lower() in str(attributes).lower()
-                        for role in instrument_roles
-                    ):
-                        instruments.append(artist_name)
-                        self._log.debug(
-                            'Performers: Found instrumentalist: {0} (type: {1}, attrs: {2})',
-                            artist_name, rel_type, attributes
-                        )
-
-        # Combine performers based on preferences
-        if self.config['prefer_vocals'].get(bool) and vocals:
-            performers = vocals
-        elif vocals_only:
-            performers = vocals
-        else:
-            # Vocals first, then instruments
-            performers = vocals + instruments
-
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_performers = []
-        for p in performers:
-            if p not in seen:
-                seen.add(p)
-                unique_performers.append(p)
-
-        return unique_performers
-
-    def _extract_artist_credit(self, artist_credit):
-        """Extract artist names from artist-credit field.
-
-        Args:
-            artist_credit: List of artist-credit objects from MusicBrainz
-
-        Returns:
-            List of artist names
-        """
-        artists = []
-        for credit in artist_credit:
-            artist = credit.get('artist', {})
-            # Use the credited name, or fall back to artist name
-            name = credit.get('name') or artist.get('name', '')
-            if name:
-                artists.append(name)
-        return artists
-
-    def _format_performers(self, performers):
-        """Format list of performers into artist string.
-
-        Args:
-            performers: List of performer names
-
-        Returns:
-            Formatted artist string
-        """
-        # Limit number of artists if configured
-        max_artists = self.config['max_artists'].get(int)
-        if max_artists > 0 and len(performers) > max_artists:
-            performers = performers[:max_artists]
-
-        # Join with configured separator
-        separator = self.config['separator'].get(str)
-        return separator.join(performers)
+        # Register as an import stage
+        if self.config['auto']:
+            self.import_stages = [self.imported]
 
     def commands(self):
-        """Provide commands for the plugin."""
-        # Could add a command to re-tag existing items
-        return []
+        """Add command for manual performer fetching."""
+        cmd = ui.Subcommand('performers', help='fetch performer data for tracks')
+        cmd.parser.add_option(
+            '-f', '--force',
+            action='store_true', default=False,
+            help='re-fetch performers even if already present'
+        )
+        cmd.func = self.command_func
+        return [cmd]
+
+    def command_func(self, lib, opts, args):
+        """Command handler for manual performer fetching."""
+        force = opts.force or self.config['force'].get(bool)
+
+        # Get items to process
+        items = lib.items(ui.decargs(args))
+
+        self._log.info('Processing {} tracks...', len(items))
+
+        for item in items:
+            self.fetch_performers(item, force=force)
+
+    def imported(self, session, task):
+        """Hook called after items are imported."""
+        if task.is_album:
+            items = task.imported_items()
+        else:
+            items = [task.item]
+
+        force = self.config['force'].get(bool)
+
+        for item in items:
+            self.fetch_performers(item, force=force)
+
+    def fetch_performers(self, item, force=False):
+        """Fetch performer data for a single item and update artist field."""
+        # Skip if artist is already set and force is False
+        if not force and item.artist and item.artist != item.albumartist:
+            self._log.debug('Skipping {}: artist already set', item)
+            return
+
+        # Need a MusicBrainz recording ID
+        if not item.mb_trackid:
+            self._log.debug('Skipping {}: no MB recording ID', item)
+            return
+
+        try:
+            # Fetch recording data with artist credits
+            recording = self._fetch_recording(item.mb_trackid)
+
+            if not recording:
+                self._log.debug('No recording data found for {}', item)
+                return
+
+            # Extract performers
+            performers = self._extract_performers(recording)
+
+            if performers:
+                separator = self.config['separator'].get(str)
+                artist_string = separator.join(performers)
+
+                self._log.info('Setting artist for {}: {}', item, artist_string)
+                item.artist = artist_string
+                item.store()
+            else:
+                self._log.debug('No performers found for {}', item)
+
+                # Fallback to albumartist if configured
+                if self.config['fallback_to_albumartist'].get(bool):
+                    if item.artist != item.albumartist:
+                        self._log.debug('Using albumartist as fallback for {}', item)
+                        item.artist = item.albumartist
+                        item.store()
+
+        except musicbrainzngs.WebServiceError as e:
+            self._log.error('MusicBrainz error for {}: {}', item, e)
+        except Exception as e:
+            self._log.error('Error processing {}: {}', item, e)
+
+    def _fetch_recording(self, mb_trackid):
+        """Fetch recording data from MusicBrainz with rate limiting."""
+        try:
+            # Rate limiting - MB allows 1 request per second
+            time.sleep(1.0)
+
+            # Fetch recording with artist credits and relationships
+            result = musicbrainzngs.get_recording_by_id(
+                mb_trackid,
+                includes=['artist-credits', 'artist-rels']
+            )
+
+            return result.get('recording')
+
+        except musicbrainzngs.ResponseError as e:
+            self._log.error('MusicBrainz API error: {}', e)
+            return None
+
+    def _extract_performers(self, recording):
+        """Extract performer names from recording data."""
+        performers = []
+
+        # First, try artist-credits (this is what shows as track artists on MB)
+        if 'artist-credit' in recording:
+            for credit in recording['artist-credit']:
+                if isinstance(credit, dict) and 'artist' in credit:
+                    name = credit['artist'].get('name', '')
+                    if name:
+                        performers.append(name)
+
+        # If no artist credits, try to get performers from relationships
+        if not performers and 'artist-relation-list' in recording:
+            vocal_only = self.config['vocal_only'].get(bool)
+            performer_types = self.config['performer_types'].get(list)
+
+            for relation in recording['artist-relation-list']:
+                rel_type = relation.get('type', '').lower()
+
+                # Filter by performer type if configured
+                if vocal_only and 'vocal' not in rel_type:
+                    continue
+
+                # Check if this relation type is in our configured types
+                if performer_types and not any(pt in rel_type for pt in performer_types):
+                    continue
+
+                artist = relation.get('artist', {})
+                name = artist.get('name', '')
+
+                if name and name not in performers:
+                    performers.append(name)
+
+        return performers
+
+
+# Export the plugin class
+__all__ = ['PerformersPlugin']

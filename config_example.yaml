@@ -10,38 +10,27 @@ musicbrainz:
 
 # Performers plugin configuration
 performers:
-  # Enable/disable the plugin
-  use_performers: true
+  # Automatically fetch performers during import
+  auto: true
 
-  # Always include vocal performers
-  always_include_vocals: true
+  # Re-fetch even if artist is already set
+  force: false
 
-  # Include instrumental performers
-  include_instruments: false
+  # Separator for multiple performers
+  separator: '; '
 
-  # Only use vocal performers (ignore instruments)
-  # Set to true for musicals/soundtracks, false for classical/jazz
-  vocals_only: false
+  # Only include vocal performers
+  vocal_only: false
 
-  # Specific instrument roles to include (empty = all instruments if include_instruments is true)
-  # Common examples: guitar, piano, drums, bass, violin, cello, trumpet, saxophone
-  instrument_roles: []
+  # Use albumartist if no performers found
+  fallback_to_albumartist: true
 
-  # Fall back to artist-credit if no performers found
-  # Recommended: true (otherwise tracks without performer data will have no artist)
-  fallback_to_artist_credit: true
-
-  # Prefer vocal performers over instrumental (when both exist)
-  # If true and vocals are found, instrumentalists are excluded
-  prefer_vocals: true
-
-  # Separator for multiple artists
-  # Examples: ', ' (comma-space), ' & ' (ampersand), '; ' (semicolon)
-  separator: ', '
-
-  # Maximum number of artists to include (0 = no limit)
-  # Useful when tracks have many performers (e.g., orchestras)
-  max_artists: 0
+  # Types of performer relationships to include
+  performer_types:
+    - vocal
+    - performer
+    - instrument
+    - vocals
 
 # Example configurations for different use cases:
 
@@ -50,42 +39,42 @@ performers:
 # Goal: Tag with vocalists only
 # ----------------------------------------
 # performers:
-#   vocals_only: true
-#   always_include_vocals: true
-#   fallback_to_artist_credit: true
+#   auto: true
+#   vocal_only: true
+#   separator: ', '
+#   fallback_to_albumartist: true
 
 # ----------------------------------------
-# Use Case 2: Classical Music
-# Goal: Include orchestra, conductor, and soloists
+# Use Case 2: All Performers
+# Goal: Include all performers (vocals and instruments)
 # ----------------------------------------
 # performers:
-#   include_instruments: true
-#   instrument_roles:
-#     - violin
+#   auto: true
+#   vocal_only: false
+#   performer_types:
+#     - vocal
+#     - performer
+#     - instrument
+#   separator: '; '
+
+# ----------------------------------------
+# Use Case 3: Specific Instruments Only
+# Goal: Only include specific instrument types
+# ----------------------------------------
+# performers:
+#   auto: true
+#   vocal_only: false
+#   performer_types:
+#     - guitar
 #     - piano
-#     - cello
-#     - conductor
-#   prefer_vocals: false
-#   max_artists: 5
+#     - drums
+#   separator: ', '
 
 # ----------------------------------------
-# Use Case 3: Jazz with Featured Soloists
-# Goal: Include vocals and featured instruments
+# Use Case 4: Manual Mode
+# Goal: Only fetch performers when manually requested
 # ----------------------------------------
 # performers:
-#   include_instruments: true
-#   instrument_roles:
-#     - saxophone
-#     - trumpet
-#     - piano
-#   prefer_vocals: false
-
-# ----------------------------------------
-# Use Case 4: All Performers (limit count)
-# Goal: Include everyone but limit to avoid clutter
-# ----------------------------------------
-# performers:
-#   include_instruments: true
-#   vocals_only: false
-#   max_artists: 4
-#   separator: ' & '
+#   auto: false
+#   force: false
+# Then run: beet performers [query]

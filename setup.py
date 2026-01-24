@@ -16,6 +16,7 @@ setup(
     namespace_packages=['beetsplug'],
     install_requires=[
         'beets>=1.6.0',
+        'musicbrainzngs>=0.7.1',
     ],
     classifiers=[
         'Topic :: Multimedia :: Sound/Audio',
