@@ -109,12 +109,20 @@ beet performers artist:Larson
 # Preview changes without saving (dry-run mode)
 beet performers -p artist:Larson
 
+# Only include vocal performers (override config)
+beet performers -v artist:Larson
+
 # Force re-fetch even if artist is already set
 beet performers -f artist:Larson
 
-# Combine flags: preview forced re-fetch
-beet performers -fp artist:Larson
+# Combine flags: preview forced re-fetch with vocals only
+beet performers -fpv artist:Larson
 ```
+
+**Command Flags:**
+- `-f`, `--force`: Re-fetch performers even if artist is already set
+- `-p`, `--pretend`: Preview changes without updating the database (dry-run)
+- `-v`, `--vocal-only`: Only include vocal performers, ignore instrumentalists (overrides config)
 
 ## Configuration Examples
 

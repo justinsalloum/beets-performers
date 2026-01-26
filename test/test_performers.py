@@ -166,6 +166,125 @@ class PerformersPluginTest(TestHelper):
         # Should have slept for rate limiting
         mock_sleep.assert_called_once_with(1.0)
 
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_vocal_only_flag_overrides_config(self, mock_get_recording):
+        """Test that vocal_only flag overrides config setting."""
+        # Mock MusicBrainz response with both vocal and instrumental performers
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-relation-list': [
+                    {'type': 'vocal', 'artist': {'name': 'Singer'}, 'attributes': ['vocals']},
+                    {
+                        'type': 'performer',
+                        'artist': {'name': 'Guitarist'},
+                        'attributes': ['guitar'],
+                    },
+                ]
+            }
+        }
+
+        # Set config to include all performers
+        self.plugin.config['vocal_only'] = False
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with vocal_only=True flag (should override config)
+        self.plugin.fetch_performers(item, force=True, vocal_only=True)
+
+        # Should only include singer, not guitarist
+        self.assertIn('Singer', item.artist)
+        self.assertNotIn('Guitarist', item.artist)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_vocal_only_flag_restores_config(self, mock_get_recording):
+        """Test that config is restored after processing with vocal_only flag."""
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-credit': [{'name': 'Test Artist', 'artist': {'name': 'Test Artist'}}]
+            }
+        }
+
+        # Set initial config value
+        self.plugin.config['vocal_only'] = False
+        original_value = self.plugin.config['vocal_only'].get(bool)
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with vocal_only flag
+        self.plugin.fetch_performers(item, force=True, vocal_only=True)
+
+        # Config should be restored to original value
+        self.assertEqual(self.plugin.config['vocal_only'].get(bool), original_value)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_vocal_only_flag_restores_config_on_error(self, mock_get_recording):
+        """Test that config is restored even if an error occurs."""
+        # Mock an error during processing
+        mock_get_recording.side_effect = Exception('Test error')
+
+        # Set initial config value
+        self.plugin.config['vocal_only'] = False
+        original_value = self.plugin.config['vocal_only'].get(bool)
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with vocal_only flag (should not raise exception)
+        self.plugin.fetch_performers(item, force=True, vocal_only=True)
+
+        # Config should still be restored despite error
+        self.assertEqual(self.plugin.config['vocal_only'].get(bool), original_value)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_vocal_only_flag_none_uses_config(self, mock_get_recording):
+        """Test that vocal_only=None uses the config value."""
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-relation-list': [
+                    {'type': 'vocal', 'artist': {'name': 'Singer'}, 'attributes': ['vocals']},
+                    {
+                        'type': 'performer',
+                        'artist': {'name': 'Guitarist'},
+                        'attributes': ['guitar'],
+                    },
+                ]
+            }
+        }
+
+        # Set config to vocal_only=True
+        self.plugin.config['vocal_only'] = True
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with vocal_only=None (should use config)
+        self.plugin.fetch_performers(item, force=True, vocal_only=None)
+
+        # Should only include singer based on config
+        self.assertIn('Singer', item.artist)
+        self.assertNotIn('Guitarist', item.artist)
+
+    def test_command_has_vocal_only_option(self):
+        """Test that the command registers the vocal-only option."""
+        commands = self.plugin.commands()
+        cmd = commands[0]
+
+        # Check that the option was registered
+        # Get all option strings from all options
+        all_option_strings = []
+        for opt in cmd.parser.option_list:
+            all_option_strings.extend(opt._short_opts)
+            all_option_strings.extend(opt._long_opts)
+
+        self.assertIn('-v', all_option_strings)
+        self.assertIn('--vocal-only', all_option_strings)
+
 
 class ExtractPerformersTest(unittest.TestCase):
     """Test cases specifically for _extract_performers method."""

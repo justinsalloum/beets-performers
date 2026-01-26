@@ -58,6 +58,13 @@ class PerformersPlugin(BeetsPlugin):
             default=False,
             help='preview changes without updating the database',
         )
+        cmd.parser.add_option(
+            '-v',
+            '--vocal-only',
+            action='store_true',
+            default=False,
+            help='only include vocal performers (ignore instrumentalists)',
+        )
         cmd.func = self.command_func
         return [cmd]
 
@@ -65,6 +72,7 @@ class PerformersPlugin(BeetsPlugin):
         """Command handler for manual performer fetching."""
         force = opts.force or self.config['force'].get(bool)
         pretend = opts.pretend
+        vocal_only = opts.vocal_only if hasattr(opts, 'vocal_only') else None
 
         # Get items to process
         items = lib.items(ui.decargs(args))
@@ -77,7 +85,7 @@ class PerformersPlugin(BeetsPlugin):
             self._log.info('Processing {} tracks...', len(items))
 
         for item in items:
-            self.fetch_performers(item, force=force, pretend=pretend)
+            self.fetch_performers(item, force=force, pretend=pretend, vocal_only=vocal_only)
 
     def imported(self, session, task):
         """Hook called after items are imported."""
@@ -91,74 +99,86 @@ class PerformersPlugin(BeetsPlugin):
         for item in items:
             self.fetch_performers(item, force=force)
 
-    def fetch_performers(self, item, force=False, pretend=False):
+    def fetch_performers(self, item, force=False, pretend=False, vocal_only=None):
         """Fetch performer data for a single item and update artist field.
 
         Args:
             item: The Item to process
             force: Re-fetch even if artist is already set
             pretend: Preview changes without saving to database
+            vocal_only: Override config to only include vocal performers (None = use config)
         """
-        # Skip if artist is already set and force is False
-        if not force and item.artist and item.artist != item.albumartist:
-            self._log.debug('Skipping {}: artist already set', item)
-            return
-
-        # Need a MusicBrainz recording ID
-        if not item.mb_trackid:
-            self._log.debug('Skipping {}: no MB recording ID', item)
-            return
+        # Temporarily override config if vocal_only flag is provided
+        original_vocal_only = None
+        if vocal_only is not None:
+            original_vocal_only = self.config['vocal_only'].get(bool)
+            self.config['vocal_only'] = vocal_only
 
         try:
-            # Fetch recording data with artist credits
-            recording = self._fetch_recording(item.mb_trackid)
-
-            if not recording:
-                self._log.debug('No recording data found for {}', item)
+            # Skip if artist is already set and force is False
+            if not force and item.artist and item.artist != item.albumartist:
+                self._log.debug('Skipping {}: artist already set', item)
                 return
 
-            # Extract performers
-            performers = self._extract_performers(recording)
+            # Need a MusicBrainz recording ID
+            if not item.mb_trackid:
+                self._log.debug('Skipping {}: no MB recording ID', item)
+                return
 
-            if performers:
-                separator = self.config['separator'].get(str)
-                artist_string = separator.join(performers)
+            try:
+                # Fetch recording data with artist credits
+                recording = self._fetch_recording(item.mb_trackid)
 
-                old_artist = item.artist or ''
-                # Character-level diff highlighting (only changed chars colored)
-                old_colored, new_colored = ui._colordiff(old_artist, artist_string)
+                if not recording:
+                    self._log.debug('No recording data found for {}', item)
+                    return
 
-                if pretend:
-                    ui.print_(f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}')
+                # Extract performers
+                performers = self._extract_performers(recording)
+
+                if performers:
+                    separator = self.config['separator'].get(str)
+                    artist_string = separator.join(performers)
+
+                    old_artist = item.artist or ''
+                    # Character-level diff highlighting (only changed chars colored)
+                    old_colored, new_colored = ui._colordiff(old_artist, artist_string)
+
+                    if pretend:
+                        ui.print_(f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored}')
+                    else:
+                        ui.print_(f'Performers: {item} | {old_colored} -> {new_colored}')
+                        item.artist = artist_string
+                        item.store()
                 else:
-                    ui.print_(f'Performers: {item} | {old_colored} -> {new_colored}')
-                    item.artist = artist_string
-                    item.store()
-            else:
-                self._log.debug('No performers found for {}', item)
+                    self._log.debug('No performers found for {}', item)
 
-                # Fallback to albumartist if configured
-                if self.config['fallback_to_albumartist'].get(bool):
-                    if item.artist != item.albumartist:
-                        old_artist = item.artist or ''
-                        # Character-level diff highlighting (only changed chars colored)
-                        old_colored, new_colored = ui._colordiff(old_artist, item.albumartist)
+                    # Fallback to albumartist if configured
+                    if self.config['fallback_to_albumartist'].get(bool):
+                        if item.artist != item.albumartist:
+                            old_artist = item.artist or ''
+                            # Character-level diff highlighting (only changed chars colored)
+                            old_colored, new_colored = ui._colordiff(old_artist, item.albumartist)
 
-                        if pretend:
-                            ui.print_(
-                                f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)'
-                            )
-                        else:
-                            ui.print_(
-                                f'Performers: {item} | {old_colored} -> {new_colored} (fallback)'
-                            )
-                            item.artist = item.albumartist
-                            item.store()
+                            if pretend:
+                                ui.print_(
+                                    f'Performers [PREVIEW]: {item} | {old_colored} -> {new_colored} (fallback)'
+                                )
+                            else:
+                                ui.print_(
+                                    f'Performers: {item} | {old_colored} -> {new_colored} (fallback)'
+                                )
+                                item.artist = item.albumartist
+                                item.store()
 
-        except musicbrainzngs.WebServiceError as e:
-            self._log.error('MusicBrainz error for {}: {}', item, e)
-        except Exception as e:
-            self._log.error('Error processing {}: {}', item, e)
+            except musicbrainzngs.WebServiceError as e:
+                self._log.error('MusicBrainz error for {}: {}', item, e)
+            except Exception as e:
+                self._log.error('Error processing {}: {}', item, e)
+        finally:
+            # Restore original config if it was overridden
+            if original_vocal_only is not None:
+                self.config['vocal_only'] = original_vocal_only
 
     def _fetch_recording(self, mb_trackid):
         """Fetch recording data from MusicBrainz with rate limiting."""
