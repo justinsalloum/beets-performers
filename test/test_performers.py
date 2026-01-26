@@ -285,6 +285,44 @@ class PerformersPluginTest(TestHelper):
         self.assertIn('-v', all_option_strings)
         self.assertIn('--vocal-only', all_option_strings)
 
+    def test_command_has_and_last_option(self):
+        """Test that the command registers the and-last option."""
+        commands = self.plugin.commands()
+        cmd = commands[0]
+
+        # Check that the option was registered
+        # Get all option strings from all options
+        all_option_strings = []
+        for opt in cmd.parser.option_list:
+            all_option_strings.extend(opt._short_opts)
+            all_option_strings.extend(opt._long_opts)
+
+        self.assertIn('-a', all_option_strings)
+        self.assertIn('--and-last', all_option_strings)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_and_last_flag_formatting(self, mock_get_recording):
+        """Test that and_last flag formats performers correctly."""
+        # Mock MusicBrainz response with multiple performers
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-credit': [
+                    {'name': 'Kristen Bell', 'artist': {'name': 'Kristen Bell'}},
+                    {'name': 'Idina Menzel', 'artist': {'name': 'Idina Menzel'}},
+                ]
+            }
+        }
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with and_last=True flag
+        self.plugin.fetch_performers(item, force=True, and_last=True)
+
+        # Should use "and" between performers
+        self.assertEqual(item.artist, 'Kristen Bell and Idina Menzel')
+
 
 class ExtractPerformersTest(unittest.TestCase):
     """Test cases specifically for _extract_performers method."""
@@ -313,6 +351,58 @@ class ExtractPerformersTest(unittest.TestCase):
         # Should only include each artist once
         self.assertEqual(len(performers), 2)
         self.assertEqual(performers.count('Artist A'), 1)
+
+
+class FormatPerformersTest(unittest.TestCase):
+    """Test cases specifically for _format_performers method."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.plugin = PerformersPlugin()
+
+    def test_empty_list(self):
+        """Test formatting with empty performer list."""
+        result = self.plugin._format_performers([], '; ')
+        self.assertEqual(result, '')
+
+    def test_single_performer(self):
+        """Test formatting with single performer."""
+        result = self.plugin._format_performers(['Artist A'], '; ')
+        self.assertEqual(result, 'Artist A')
+
+    def test_two_performers_default(self):
+        """Test formatting two performers without and_last."""
+        result = self.plugin._format_performers(['Artist A', 'Artist B'], '; ')
+        self.assertEqual(result, 'Artist A; Artist B')
+
+    def test_two_performers_with_and(self):
+        """Test formatting two performers with and_last."""
+        result = self.plugin._format_performers(['Artist A', 'Artist B'], '; ', and_last=True)
+        self.assertEqual(result, 'Artist A and Artist B')
+
+    def test_three_performers_default(self):
+        """Test formatting three performers without and_last."""
+        result = self.plugin._format_performers(['Artist A', 'Artist B', 'Artist C'], '; ')
+        self.assertEqual(result, 'Artist A; Artist B; Artist C')
+
+    def test_three_performers_with_and(self):
+        """Test formatting three performers with and_last."""
+        result = self.plugin._format_performers(
+            ['Artist A', 'Artist B', 'Artist C'], '; ', and_last=True
+        )
+        self.assertEqual(result, 'Artist A; Artist B and Artist C')
+
+    def test_custom_separator(self):
+        """Test formatting with custom separator."""
+        result = self.plugin._format_performers(['Artist A', 'Artist B', 'Artist C'], ', ')
+        self.assertEqual(result, 'Artist A, Artist B, Artist C')
+
+    def test_custom_separator_with_and(self):
+        """Test formatting with custom separator and and_last."""
+        result = self.plugin._format_performers(
+            ['Artist A', 'Artist B', 'Artist C'], ', ', and_last=True
+        )
+        self.assertEqual(result, 'Artist A, Artist B and Artist C')
 
 
 if __name__ == '__main__':

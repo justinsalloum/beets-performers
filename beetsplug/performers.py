@@ -65,6 +65,13 @@ class PerformersPlugin(BeetsPlugin):
             default=False,
             help='only include vocal performers (ignore instrumentalists)',
         )
+        cmd.parser.add_option(
+            '-a',
+            '--and-last',
+            action='store_true',
+            default=False,
+            help='use "and" before the last performer (e.g., "A, B and C")',
+        )
         cmd.func = self.command_func
         return [cmd]
 
@@ -73,6 +80,7 @@ class PerformersPlugin(BeetsPlugin):
         force = opts.force or self.config['force'].get(bool)
         pretend = opts.pretend
         vocal_only = opts.vocal_only if hasattr(opts, 'vocal_only') else None
+        and_last = opts.and_last if hasattr(opts, 'and_last') else False
 
         # Get items to process
         items = lib.items(ui.decargs(args))
@@ -85,7 +93,9 @@ class PerformersPlugin(BeetsPlugin):
             self._log.info('Processing {} tracks...', len(items))
 
         for item in items:
-            self.fetch_performers(item, force=force, pretend=pretend, vocal_only=vocal_only)
+            self.fetch_performers(
+                item, force=force, pretend=pretend, vocal_only=vocal_only, and_last=and_last
+            )
 
     def imported(self, session, task):
         """Hook called after items are imported."""
@@ -99,7 +109,7 @@ class PerformersPlugin(BeetsPlugin):
         for item in items:
             self.fetch_performers(item, force=force)
 
-    def fetch_performers(self, item, force=False, pretend=False, vocal_only=None):
+    def fetch_performers(self, item, force=False, pretend=False, vocal_only=None, and_last=False):
         """Fetch performer data for a single item and update artist field.
 
         Args:
@@ -107,6 +117,7 @@ class PerformersPlugin(BeetsPlugin):
             force: Re-fetch even if artist is already set
             pretend: Preview changes without saving to database
             vocal_only: Override config to only include vocal performers (None = use config)
+            and_last: Use "and" before the last performer instead of the separator
         """
         # Temporarily override config if vocal_only flag is provided
         original_vocal_only = None
@@ -138,7 +149,7 @@ class PerformersPlugin(BeetsPlugin):
 
                 if performers:
                     separator = self.config['separator'].get(str)
-                    artist_string = separator.join(performers)
+                    artist_string = self._format_performers(performers, separator, and_last)
 
                     old_artist = item.artist or ''
                     # Character-level diff highlighting (only changed chars colored)
@@ -196,6 +207,25 @@ class PerformersPlugin(BeetsPlugin):
         except musicbrainzngs.ResponseError as e:
             self._log.error('MusicBrainz API error: {}', e)
             return None
+
+    def _format_performers(self, performers, separator, and_last=False):
+        """Format a list of performers into a string.
+
+        Args:
+            performers: List of performer names
+            separator: String to separate performers
+            and_last: Use "and" before the last performer
+
+        Returns:
+            Formatted string of performers
+        """
+        if not performers:
+            return ''
+        if len(performers) == 1:
+            return performers[0]
+        if and_last:
+            return f'{separator.join(performers[:-1])} and {performers[-1]}'
+        return separator.join(performers)
 
     def _extract_performers(self, recording):
         """Extract performer names from recording data."""
