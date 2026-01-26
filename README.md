@@ -115,14 +115,21 @@ beet performers -v artist:Larson
 # Force re-fetch even if artist is already set
 beet performers -f artist:Larson
 
+# Use "and" before the last performer
+beet performers -a artist:Larson
+
 # Combine flags: preview forced re-fetch with vocals only
 beet performers -fpv artist:Larson
+
+# Combine flags: vocals only with "and" separator
+beet performers -va artist:Larson
 ```
 
 **Command Flags:**
 - `-f`, `--force`: Re-fetch performers even if artist is already set
 - `-p`, `--pretend`: Preview changes without updating the database (dry-run)
 - `-v`, `--vocal-only`: Only include vocal performers, ignore instrumentalists (overrides config)
+- `-a`, `--and-last`: Use "and" before the last performer (e.g., "A, B and C" instead of "A, B, C")
 
 ## Configuration Examples
 
@@ -136,6 +143,12 @@ performers:
   vocal_only: true
   separator: ', '
   fallback_to_albumartist: true
+```
+
+**Note**: For more natural formatting with the `-a/--and-last` flag, you can use:
+```bash
+# This will format as "Kristen Bell and Idina Menzel" instead of "Kristen Bell, Idina Menzel"
+beet performers -va artist:Frozen
 ```
 
 ### Example 2: All performers
