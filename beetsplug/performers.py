@@ -27,6 +27,7 @@ class PerformersPlugin(BeetsPlugin):
                 'force': False,  # Re-fetch even if artist is already set
                 'separator': '; ',  # Separator for multiple performers
                 'vocal_only': False,  # Only include vocal performers
+                'use_credited_name': True,  # Use credited name instead of canonical artist name
                 'fallback_to_albumartist': True,  # Use albumartist if no performers found
                 'performer_types': [
                     'vocal',
@@ -230,14 +231,28 @@ class PerformersPlugin(BeetsPlugin):
     def _extract_performers(self, recording):
         """Extract performer names from recording data."""
         performers = []
+        use_credited_name = self.config['use_credited_name'].get(bool)
 
         # First, try artist-credits (this is what shows as track artists on MB)
         if 'artist-credit' in recording:
             for credit in recording['artist-credit']:
-                if isinstance(credit, dict) and 'artist' in credit:
-                    name = credit['artist'].get('name', '')
+                if isinstance(credit, dict):
+                    # Choose between credited name and canonical name
+                    if use_credited_name and 'name' in credit:
+                        # Use the credited name (e.g., "Ship's Chorus")
+                        name = credit['name']
+                    elif 'artist' in credit:
+                        # Use the canonical artist name (e.g., "[Disney]")
+                        name = credit['artist'].get('name', '')
+                    else:
+                        name = ''
+
                     if name and name not in performers:
                         performers.append(name)
+                elif isinstance(credit, str):
+                    # Sometimes credits are just strings
+                    if credit and credit not in performers:
+                        performers.append(credit)
 
         # If no artist credits, try to get performers from relationships
         if not performers and 'artist-relation-list' in recording:

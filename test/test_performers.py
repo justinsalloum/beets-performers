@@ -21,6 +21,7 @@ class PerformersPluginTest(TestHelper):
         self.assertEqual(self.plugin.config['auto'].get(bool), True)
         self.assertEqual(self.plugin.config['separator'].get(str), '; ')
         self.assertEqual(self.plugin.config['vocal_only'].get(bool), False)
+        self.assertEqual(self.plugin.config['use_credited_name'].get(bool), True)
 
     def test_plugin_configuration(self):
         """Test plugin configuration options."""
@@ -351,6 +352,67 @@ class ExtractPerformersTest(unittest.TestCase):
         # Should only include each artist once
         self.assertEqual(len(performers), 2)
         self.assertEqual(performers.count('Artist A'), 1)
+
+    def test_use_credited_name_enabled(self):
+        """Test that credited names are used when use_credited_name is True."""
+        # Enable credited name usage (default)
+        self.plugin.config['use_credited_name'] = True
+
+        recording = {
+            'artist-credit': [
+                {
+                    'name': "Ship's Chorus",  # Credited name
+                    'artist': {'name': '[Disney]'},  # Canonical name
+                },
+                {'name': 'Cast', 'artist': {'name': 'Various Artists'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should use credited names
+        self.assertEqual(len(performers), 2)
+        self.assertIn("Ship's Chorus", performers)
+        self.assertIn('Cast', performers)
+        self.assertNotIn('[Disney]', performers)
+        self.assertNotIn('Various Artists', performers)
+
+    def test_use_credited_name_disabled(self):
+        """Test that canonical names are used when use_credited_name is False."""
+        # Disable credited name usage
+        self.plugin.config['use_credited_name'] = False
+
+        recording = {
+            'artist-credit': [
+                {
+                    'name': "Ship's Chorus",  # Credited name
+                    'artist': {'name': '[Disney]'},  # Canonical name
+                },
+                {'name': 'Cast', 'artist': {'name': 'Various Artists'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should use canonical artist names
+        self.assertEqual(len(performers), 2)
+        self.assertIn('[Disney]', performers)
+        self.assertIn('Various Artists', performers)
+        self.assertNotIn("Ship's Chorus", performers)
+        self.assertNotIn('Cast', performers)
+
+    def test_credited_name_with_string_credits(self):
+        """Test that string credits are handled properly."""
+        self.plugin.config['use_credited_name'] = True
+
+        recording = {'artist-credit': ['Simple String Credit', 'Another String']}
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should include string credits
+        self.assertEqual(len(performers), 2)
+        self.assertIn('Simple String Credit', performers)
+        self.assertIn('Another String', performers)
 
 
 class FormatPerformersTest(unittest.TestCase):
