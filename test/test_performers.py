@@ -401,18 +401,30 @@ class ExtractPerformersTest(unittest.TestCase):
         self.assertNotIn("Ship's Chorus", performers)
         self.assertNotIn('Cast', performers)
 
-    def test_credited_name_with_string_credits(self):
-        """Test that string credits are handled properly."""
+    def test_joinphrases_are_skipped(self):
+        """Test that joinphrase strings in artist-credit are skipped."""
         self.plugin.config['use_credited_name'] = True
 
-        recording = {'artist-credit': ['Simple String Credit', 'Another String']}
+        # Simulate real MusicBrainz artist-credit structure with joinphrases
+        recording = {
+            'artist-credit': [
+                {'name': 'Anthony Rapp', 'artist': {'name': 'Anthony Rapp'}},
+                ' & ',  # joinphrase (should be skipped)
+                {'name': 'Adam Pascal', 'artist': {'name': 'Adam Pascal'}},
+                ', ',  # joinphrase (should be skipped)
+                {'name': 'Daphne Rubin‐Vega', 'artist': {'name': 'Daphne Rubin‐Vega'}},
+            ]
+        }
 
         performers = self.plugin._extract_performers(recording)
 
-        # Should include string credits
-        self.assertEqual(len(performers), 2)
-        self.assertIn('Simple String Credit', performers)
-        self.assertIn('Another String', performers)
+        # Should only include artist names, not joinphrases
+        self.assertEqual(len(performers), 3)
+        self.assertIn('Anthony Rapp', performers)
+        self.assertIn('Adam Pascal', performers)
+        self.assertIn('Daphne Rubin‐Vega', performers)
+        self.assertNotIn(' & ', performers)
+        self.assertNotIn(', ', performers)
 
 
 class FormatPerformersTest(unittest.TestCase):

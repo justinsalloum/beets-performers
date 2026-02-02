@@ -236,6 +236,7 @@ class PerformersPlugin(BeetsPlugin):
         # First, try artist-credits (this is what shows as track artists on MB)
         if 'artist-credit' in recording:
             for credit in recording['artist-credit']:
+                # Only process dict objects; strings are joinphrases (like ' & ')
                 if isinstance(credit, dict):
                     # Choose between credited name and canonical name
                     if use_credited_name and 'name' in credit:
@@ -249,10 +250,6 @@ class PerformersPlugin(BeetsPlugin):
 
                     if name and name not in performers:
                         performers.append(name)
-                elif isinstance(credit, str):
-                    # Sometimes credits are just strings
-                    if credit and credit not in performers:
-                        performers.append(credit)
 
         # If no artist credits, try to get performers from relationships
         if not performers and 'artist-relation-list' in recording:
