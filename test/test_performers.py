@@ -21,6 +21,7 @@ class PerformersPluginTest(TestHelper):
         self.assertEqual(self.plugin.config['auto'].get(bool), True)
         self.assertEqual(self.plugin.config['separator'].get(str), '; ')
         self.assertEqual(self.plugin.config['vocal_only'].get(bool), False)
+        self.assertEqual(self.plugin.config['use_credited_name'].get(bool), True)
 
     def test_plugin_configuration(self):
         """Test plugin configuration options."""
@@ -300,6 +301,21 @@ class PerformersPluginTest(TestHelper):
         self.assertIn('-a', all_option_strings)
         self.assertIn('--and-last', all_option_strings)
 
+    def test_command_has_use_credited_name_option(self):
+        """Test that the command registers the use-credited-name option."""
+        commands = self.plugin.commands()
+        cmd = commands[0]
+
+        # Check that the option was registered
+        # Get all option strings from all options
+        all_option_strings = []
+        for opt in cmd.parser.option_list:
+            all_option_strings.extend(opt._short_opts)
+            all_option_strings.extend(opt._long_opts)
+
+        self.assertIn('-c', all_option_strings)
+        self.assertIn('--use-credited-name', all_option_strings)
+
     @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
     def test_and_last_flag_formatting(self, mock_get_recording):
         """Test that and_last flag formats performers correctly."""
@@ -322,6 +338,96 @@ class PerformersPluginTest(TestHelper):
 
         # Should use "and" between performers
         self.assertEqual(item.artist, 'Kristen Bell and Idina Menzel')
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_use_credited_name_flag_overrides_config(self, mock_get_recording):
+        """Test that use_credited_name flag overrides config setting."""
+        # Mock MusicBrainz response with different credited and canonical names
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-credit': [
+                    {'name': "Ship's Chorus", 'artist': {'name': '[Disney]'}},
+                ]
+            }
+        }
+
+        # Set config to use canonical names
+        self.plugin.config['use_credited_name'] = False
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with use_credited_name=True flag (should override config)
+        self.plugin.fetch_performers(item, force=True, use_credited_name=True)
+
+        # Should use credited name, not canonical
+        self.assertEqual(item.artist, "Ship's Chorus")
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_use_credited_name_flag_restores_config(self, mock_get_recording):
+        """Test that config is restored after processing with use_credited_name flag."""
+        mock_get_recording.return_value = {
+            'recording': {'artist-credit': [{'name': 'Test', 'artist': {'name': 'Test'}}]}
+        }
+
+        # Set initial config value
+        self.plugin.config['use_credited_name'] = False
+        original_value = self.plugin.config['use_credited_name'].get(bool)
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with use_credited_name flag
+        self.plugin.fetch_performers(item, force=True, use_credited_name=True)
+
+        # Config should be restored to original value
+        self.assertEqual(self.plugin.config['use_credited_name'].get(bool), original_value)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_use_credited_name_flag_restores_config_on_error(self, mock_get_recording):
+        """Test that config is restored even if an error occurs."""
+        # Mock an error during processing
+        mock_get_recording.side_effect = Exception('Test error')
+
+        # Set initial config value
+        self.plugin.config['use_credited_name'] = False
+        original_value = self.plugin.config['use_credited_name'].get(bool)
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with use_credited_name flag (should not raise exception)
+        self.plugin.fetch_performers(item, force=True, use_credited_name=True)
+
+        # Config should still be restored despite error
+        self.assertEqual(self.plugin.config['use_credited_name'].get(bool), original_value)
+
+    @patch('beetsplug.performers.musicbrainzngs.get_recording_by_id')
+    def test_use_credited_name_flag_none_uses_config(self, mock_get_recording):
+        """Test that use_credited_name=None uses the config value."""
+        mock_get_recording.return_value = {
+            'recording': {
+                'artist-credit': [
+                    {'name': "Ship's Chorus", 'artist': {'name': '[Disney]'}},
+                ]
+            }
+        }
+
+        # Set config to use canonical names
+        self.plugin.config['use_credited_name'] = False
+
+        item = self.add_test_item(
+            artist='Album Artist', albumartist='Album Artist', mb_trackid='test-mbid-123'
+        )
+
+        # Fetch with use_credited_name=None (should use config)
+        self.plugin.fetch_performers(item, force=True, use_credited_name=None)
+
+        # Should use canonical name based on config
+        self.assertEqual(item.artist, '[Disney]')
 
 
 class ExtractPerformersTest(unittest.TestCase):
@@ -351,6 +457,79 @@ class ExtractPerformersTest(unittest.TestCase):
         # Should only include each artist once
         self.assertEqual(len(performers), 2)
         self.assertEqual(performers.count('Artist A'), 1)
+
+    def test_use_credited_name_enabled(self):
+        """Test that credited names are used when use_credited_name is True."""
+        # Enable credited name usage (default)
+        self.plugin.config['use_credited_name'] = True
+
+        recording = {
+            'artist-credit': [
+                {
+                    'name': "Ship's Chorus",  # Credited name
+                    'artist': {'name': '[Disney]'},  # Canonical name
+                },
+                {'name': 'Cast', 'artist': {'name': 'Various Artists'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should use credited names
+        self.assertEqual(len(performers), 2)
+        self.assertIn("Ship's Chorus", performers)
+        self.assertIn('Cast', performers)
+        self.assertNotIn('[Disney]', performers)
+        self.assertNotIn('Various Artists', performers)
+
+    def test_use_credited_name_disabled(self):
+        """Test that canonical names are used when use_credited_name is False."""
+        # Disable credited name usage
+        self.plugin.config['use_credited_name'] = False
+
+        recording = {
+            'artist-credit': [
+                {
+                    'name': "Ship's Chorus",  # Credited name
+                    'artist': {'name': '[Disney]'},  # Canonical name
+                },
+                {'name': 'Cast', 'artist': {'name': 'Various Artists'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should use canonical artist names
+        self.assertEqual(len(performers), 2)
+        self.assertIn('[Disney]', performers)
+        self.assertIn('Various Artists', performers)
+        self.assertNotIn("Ship's Chorus", performers)
+        self.assertNotIn('Cast', performers)
+
+    def test_joinphrases_are_skipped(self):
+        """Test that joinphrase strings in artist-credit are skipped."""
+        self.plugin.config['use_credited_name'] = True
+
+        # Simulate real MusicBrainz artist-credit structure with joinphrases
+        recording = {
+            'artist-credit': [
+                {'name': 'Anthony Rapp', 'artist': {'name': 'Anthony Rapp'}},
+                ' & ',  # joinphrase (should be skipped)
+                {'name': 'Adam Pascal', 'artist': {'name': 'Adam Pascal'}},
+                ', ',  # joinphrase (should be skipped)
+                {'name': 'Daphne Rubin‐Vega', 'artist': {'name': 'Daphne Rubin‐Vega'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should only include artist names, not joinphrases
+        self.assertEqual(len(performers), 3)
+        self.assertIn('Anthony Rapp', performers)
+        self.assertIn('Adam Pascal', performers)
+        self.assertIn('Daphne Rubin‐Vega', performers)
+        self.assertNotIn(' & ', performers)
+        self.assertNotIn(', ', performers)
 
 
 class FormatPerformersTest(unittest.TestCase):
