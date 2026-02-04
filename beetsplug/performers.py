@@ -73,6 +73,13 @@ class PerformersPlugin(BeetsPlugin):
             default=False,
             help='use "and" before the last performer (e.g., "A, B and C")',
         )
+        cmd.parser.add_option(
+            '-c',
+            '--use-credited-name',
+            action='store_true',
+            default=False,
+            help='use credited artist names instead of canonical names',
+        )
         cmd.func = self.command_func
         return [cmd]
 
@@ -82,6 +89,7 @@ class PerformersPlugin(BeetsPlugin):
         pretend = opts.pretend
         vocal_only = opts.vocal_only if hasattr(opts, 'vocal_only') else None
         and_last = opts.and_last if hasattr(opts, 'and_last') else False
+        use_credited_name = opts.use_credited_name if hasattr(opts, 'use_credited_name') else None
 
         # Get items to process
         items = lib.items(ui.decargs(args))
@@ -95,7 +103,12 @@ class PerformersPlugin(BeetsPlugin):
 
         for item in items:
             self.fetch_performers(
-                item, force=force, pretend=pretend, vocal_only=vocal_only, and_last=and_last
+                item,
+                force=force,
+                pretend=pretend,
+                vocal_only=vocal_only,
+                and_last=and_last,
+                use_credited_name=use_credited_name,
             )
 
     def imported(self, session, task):
@@ -110,7 +123,15 @@ class PerformersPlugin(BeetsPlugin):
         for item in items:
             self.fetch_performers(item, force=force)
 
-    def fetch_performers(self, item, force=False, pretend=False, vocal_only=None, and_last=False):
+    def fetch_performers(
+        self,
+        item,
+        force=False,
+        pretend=False,
+        vocal_only=None,
+        and_last=False,
+        use_credited_name=None,
+    ):
         """Fetch performer data for a single item and update artist field.
 
         Args:
@@ -119,12 +140,18 @@ class PerformersPlugin(BeetsPlugin):
             pretend: Preview changes without saving to database
             vocal_only: Override config to only include vocal performers (None = use config)
             and_last: Use "and" before the last performer instead of the separator
+            use_credited_name: Override config for using credited names (None = use config)
         """
-        # Temporarily override config if vocal_only flag is provided
+        # Temporarily override config if flags are provided
         original_vocal_only = None
         if vocal_only is not None:
             original_vocal_only = self.config['vocal_only'].get(bool)
             self.config['vocal_only'] = vocal_only
+
+        original_use_credited_name = None
+        if use_credited_name is not None:
+            original_use_credited_name = self.config['use_credited_name'].get(bool)
+            self.config['use_credited_name'] = use_credited_name
 
         try:
             # Skip if artist is already set and force is False
@@ -188,9 +215,11 @@ class PerformersPlugin(BeetsPlugin):
             except Exception as e:
                 self._log.error('Error processing {}: {}', item, e)
         finally:
-            # Restore original config if it was overridden
+            # Restore original config values if they were overridden
             if original_vocal_only is not None:
                 self.config['vocal_only'] = original_vocal_only
+            if original_use_credited_name is not None:
+                self.config['use_credited_name'] = original_use_credited_name
 
     def _fetch_recording(self, mb_trackid):
         """Fetch recording data from MusicBrainz with rate limiting."""

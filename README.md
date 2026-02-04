@@ -122,11 +122,17 @@ beet performers -f artist:Larson
 # Use "and" before the last performer
 beet performers -a artist:Larson
 
+# Use credited artist names (override config)
+beet performers -c artist:Moana
+
 # Combine flags: preview forced re-fetch with vocals only
 beet performers -fpv artist:Larson
 
 # Combine flags: vocals only with "and" separator
 beet performers -va artist:Larson
+
+# Combine flags: credited names with natural formatting
+beet performers -ca artist:Moana
 ```
 
 **Command Flags:**
@@ -134,6 +140,7 @@ beet performers -va artist:Larson
 - `-p`, `--pretend`: Preview changes without updating the database (dry-run)
 - `-v`, `--vocal-only`: Only include vocal performers, ignore instrumentalists (overrides config)
 - `-a`, `--and-last`: Use "and" before the last performer (e.g., "A, B and C" instead of "A, B, C")
+- `-c`, `--use-credited-name`: Use credited artist names instead of canonical names (overrides config)
 
 ## Configuration Examples
 
@@ -246,6 +253,12 @@ MusicBrainz distinguishes between:
 - Canonical artist: "[Disney]" (the MusicBrainz entity)
 
 By default, this plugin uses **credited names** (`use_credited_name: true`) because they match what you see on the physical release and are more descriptive for compilations and soundtracks.
+
+You can override this behavior on a per-command basis using the `-c/--use-credited-name` flag:
+```bash
+# Use credited names for this run (even if config says otherwise)
+beet performers -c artist:Moana
+```
 
 ## Performance Considerations
 
