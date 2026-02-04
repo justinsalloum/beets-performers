@@ -75,6 +75,15 @@ performers:
   # Use albumartist if no performers found (default: true)
   fallback_to_albumartist: true
 
+  # Character replacements for normalizing unicode to ASCII (default: {})
+  # Example: replace unicode apostrophes and quotes with ASCII equivalents
+  replacements:
+    ''': "'"   # Unicode apostrophe → ASCII apostrophe
+    '"': '"'   # Unicode left quote → ASCII quote
+    '"': '"'   # Unicode right quote → ASCII quote
+    '–': '-'   # En dash → ASCII hyphen
+    '—': '-'   # Em dash → ASCII hyphen
+
   # Types of performer relationships to include
   performer_types:
     - vocal
@@ -221,6 +230,32 @@ This is useful when you want:
 - Consistent artist names across different releases
 - Standard artist entities for better library organization
 - Integration with other tools that expect canonical names
+
+### Example 6: Normalize unicode characters to ASCII
+
+Replace unicode characters with ASCII equivalents for better compatibility:
+
+```yaml
+performers:
+  auto: true
+  replacements:
+    ''': "'"   # Unicode apostrophe (U+2019) → ASCII apostrophe
+    '"': '"'   # Unicode left quote (U+201C) → ASCII quote
+    '"': '"'   # Unicode right quote (U+201D) → ASCII quote
+    '–': '-'   # En dash (U+2013) → ASCII hyphen
+    '—': '-'   # Em dash (U+2014) → ASCII hyphen
+```
+
+This is useful when:
+- You prefer ASCII-only text in your music library
+- Your music player or device has issues with unicode characters
+- You want consistent character encoding across all metadata
+- Similar to using the `beets-importreplace` plugin for other fields
+
+**Example transformations:**
+- `O'Brien` → `O'Brien`
+- `"The Boss"` → `"The Boss"`
+- `Jean–Luc` → `Jean-Luc`
 
 ## How It Works
 

@@ -531,6 +531,71 @@ class ExtractPerformersTest(unittest.TestCase):
         self.assertNotIn(' & ', performers)
         self.assertNotIn(', ', performers)
 
+    def test_character_replacements(self):
+        """Test that configured character replacements are applied."""
+        # Configure replacements for unicode characters
+        self.plugin.config['replacements'] = {
+            '\u2019': "'",  # Unicode apostrophe to ASCII
+            '\u201c': '"',  # Unicode left quote to ASCII
+            '\u201d': '"',  # Unicode right quote to ASCII
+            '\u2013': '-',  # En dash to ASCII hyphen
+            '\u2014': '-',  # Em dash to ASCII hyphen
+        }
+
+        recording = {
+            'artist-credit': [
+                {'name': 'O\u2019Brien', 'artist': {'name': "O'Brien"}},
+                {'name': '\u201cThe Boss\u201d', 'artist': {'name': '"The Boss"'}},
+                {'name': 'Jean\u2013Luc', 'artist': {'name': 'Jean–Luc'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should apply replacements
+        self.assertEqual(len(performers), 3)
+        self.assertIn("O'Brien", performers)  # ASCII apostrophe
+        self.assertIn('"The Boss"', performers)  # ASCII quotes
+        self.assertIn('Jean-Luc', performers)  # ASCII hyphen
+        # Should not include unicode versions
+        self.assertNotIn('O\u2019Brien', performers)
+        self.assertNotIn('\u201cThe Boss\u201d', performers)
+        self.assertNotIn('Jean\u2013Luc', performers)
+
+    def test_replacements_empty_config(self):
+        """Test that empty replacements config doesn't affect names."""
+        # No replacements configured
+        self.plugin.config['replacements'] = {}
+
+        recording = {
+            'artist-credit': [
+                {'name': 'O\u2019Brien', 'artist': {'name': "O'Brien"}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should keep unicode characters when no replacements configured
+        self.assertEqual(len(performers), 1)
+        self.assertIn('O\u2019Brien', performers)
+
+    def test_replacements_with_relationships(self):
+        """Test that replacements work with artist-relation-list too."""
+        self.plugin.config['replacements'] = {'\u2019': "'"}
+
+        recording = {
+            'artist-relation-list': [
+                {'type': 'vocal', 'artist': {'name': 'O\u2019Brien'}, 'attributes': ['vocals']},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should apply replacements to relationship artists too
+        self.assertEqual(len(performers), 1)
+        self.assertIn("O'Brien", performers)
+        self.assertNotIn('O\u2019Brien', performers)
+
 
 class FormatPerformersTest(unittest.TestCase):
     """Test cases specifically for _format_performers method."""
