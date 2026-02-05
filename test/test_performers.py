@@ -673,6 +673,50 @@ class ExtractPerformersTest(unittest.TestCase):
         self.assertIn('Jean-Luc', performers)
         self.assertIn('Wait...', performers)
 
+    def test_vocal_only_skips_instrumental_artist_credit(self):
+        """Test that vocal_only skips artist-credit when track has no vocals."""
+        # Enable vocal_only mode
+        self.plugin.config['vocal_only'] = True
+
+        # Recording with artist-credit but no vocal relationships (instrumental track)
+        recording = {
+            'artist-credit': [
+                {'name': 'David Friedman', 'artist': {'name': 'David Friedman'}},
+            ],
+            'artist-relation-list': [
+                # Only instrumental relationships, no vocals
+                {'type': 'instrument', 'artist': {'name': 'David Friedman'}},
+            ],
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should return empty list since no vocals and artist-credit should be skipped
+        self.assertEqual(len(performers), 0)
+        self.assertNotIn('David Friedman', performers)
+
+    def test_vocal_only_uses_artist_credit_when_vocals_present(self):
+        """Test that vocal_only uses artist-credit when track has vocals."""
+        # Enable vocal_only mode
+        self.plugin.config['vocal_only'] = True
+
+        # Recording with artist-credit AND vocal relationships
+        recording = {
+            'artist-credit': [
+                {'name': 'Singer Name', 'artist': {'name': 'Singer Name'}},
+            ],
+            'artist-relation-list': [
+                # Has vocal relationship
+                {'type': 'vocal', 'artist': {'name': 'Singer Name'}},
+            ],
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should use artist-credit since vocals are present
+        self.assertEqual(len(performers), 1)
+        self.assertIn('Singer Name', performers)
+
 
 class FormatPerformersTest(unittest.TestCase):
     """Test cases specifically for _format_performers method."""

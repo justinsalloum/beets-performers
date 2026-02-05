@@ -306,9 +306,20 @@ class PerformersPlugin(BeetsPlugin):
         """Extract performer names from recording data."""
         performers = []
         use_credited_name = self.config['use_credited_name'].get(bool)
+        vocal_only = self.config['vocal_only'].get(bool)
+
+        # If vocal_only is enabled, check if there are any vocal relationships first
+        has_vocals = False
+        if vocal_only and 'artist-relation-list' in recording:
+            for relation in recording['artist-relation-list']:
+                rel_type = relation.get('type', '').lower()
+                if 'vocal' in rel_type:
+                    has_vocals = True
+                    break
 
         # First, try artist-credits (this is what shows as track artists on MB)
-        if 'artist-credit' in recording:
+        # But skip if vocal_only is set and there are no vocals on the track
+        if 'artist-credit' in recording and (not vocal_only or has_vocals):
             for credit in recording['artist-credit']:
                 # Only process dict objects; strings are joinphrases (like ' & ')
                 if isinstance(credit, dict):
