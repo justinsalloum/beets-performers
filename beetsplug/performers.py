@@ -4,6 +4,7 @@ This plugin queries MusicBrainz for performer relationships on each track and
 replaces the artist field with the performers instead of using the albumartist.
 """
 
+import re
 import time
 
 import musicbrainzngs
@@ -252,8 +253,6 @@ class PerformersPlugin(BeetsPlugin):
         Returns:
             Text with replacements applied
         """
-        import re
-
         replacements = self.config['replacements'].get(dict)
         if not replacements:
             return text
