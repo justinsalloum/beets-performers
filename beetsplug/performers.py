@@ -242,19 +242,46 @@ class PerformersPlugin(BeetsPlugin):
     def _apply_replacements(self, text):
         """Apply configured character replacements to text.
 
+        Supports both individual characters and character ranges:
+        - "\u2019": "'" - replaces a single character
+        - "[\u2010-\u2015]": "-" - replaces all characters in range
+
         Args:
             text: String to apply replacements to
 
         Returns:
             Text with replacements applied
         """
+        import re
+
         replacements = self.config['replacements'].get(dict)
         if not replacements:
             return text
 
         result = text
-        for old_char, new_char in replacements.items():
-            result = result.replace(old_char, new_char)
+        for pattern, new_char in replacements.items():
+            # Check if it's a character range pattern like [\u2010-\u2015]
+            if pattern.startswith('[') and pattern.endswith(']') and '-' in pattern:
+                # Parse range pattern: [\uXXXX-\uYYYY]
+                range_match = re.match(r'\[(\\u[0-9a-fA-F]{4})-(\\u[0-9a-fA-F]{4})\]', pattern)
+                if range_match:
+                    start_code = range_match.group(1)
+                    end_code = range_match.group(2)
+                    # Decode unicode escapes
+                    start_char = start_code.encode().decode('unicode-escape')
+                    end_char = end_code.encode().decode('unicode-escape')
+                    # Get unicode code points
+                    start_ord = ord(start_char)
+                    end_ord = ord(end_char)
+                    # Replace each character in the range
+                    for code_point in range(start_ord, end_ord + 1):
+                        result = result.replace(chr(code_point), new_char)
+                else:
+                    # Invalid range format, treat as literal string
+                    result = result.replace(pattern, new_char)
+            else:
+                # Single character replacement
+                result = result.replace(pattern, new_char)
         return result
 
     def _format_performers(self, performers, separator, and_last=False):

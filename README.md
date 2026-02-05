@@ -76,14 +76,11 @@ performers:
   fallback_to_albumartist: true
 
   # Character replacements for normalizing unicode to ASCII (default: {})
-  # Example: replace unicode apostrophes and quotes with ASCII equivalents
+  # Supports individual characters and character ranges
   replacements:
-    "\u2010": '-'   # Unicode hyphen → ASCII hyphen
-    "\u2013": '-'   # En dash → ASCII hyphen
-    "\u2014": '-'   # Em dash → ASCII hyphen
-    "\u2019": "'"   # Unicode apostrophe → ASCII apostrophe
-    "\u201c": '"'   # Unicode left quote → ASCII quote
-    "\u201d": '"'   # Unicode right quote → ASCII quote
+    '[\u2010-\u2015]': '-'   # All unicode hyphens/dashes → ASCII hyphen
+    '[\u2018-\u201B]': "'"   # All unicode single quotes → ASCII apostrophe
+    '[\u201C-\u201F]': '"'   # All unicode double quotes → ASCII quote
 
   # Types of performer relationships to include
   performer_types:
@@ -234,19 +231,25 @@ This is useful when you want:
 
 ### Example 6: Normalize unicode characters to ASCII
 
-Replace unicode characters with ASCII equivalents for better compatibility:
+Replace unicode characters with ASCII equivalents for better compatibility. Supports both individual characters and character ranges:
 
 ```yaml
 performers:
   auto: true
   replacements:
-    "\u2010": '-'   # Unicode hyphen (U+2010) → ASCII hyphen
-    "\u2013": '-'   # En dash (U+2013) → ASCII hyphen
-    "\u2014": '-'   # Em dash (U+2014) → ASCII hyphen
-    "\u2019": "'"   # Unicode apostrophe (U+2019) → ASCII apostrophe
-    "\u201c": '"'   # Unicode left quote (U+201C) → ASCII quote
-    "\u201d": '"'   # Unicode right quote (U+201D) → ASCII quote
+    # Character ranges (recommended - more concise)
+    '[\u2010-\u2015]': '-'   # All unicode hyphens/dashes → ASCII hyphen
+    '[\u2018-\u201B]': "'"   # All unicode single quotes → ASCII apostrophe
+    '[\u201C-\u201F]': '"'   # All unicode double quotes → ASCII quote
+
+    # Or individual characters (if you need more control)
+    "\u2026": '...'          # Ellipsis → three dots
 ```
+
+**Character range coverage:**
+- `[\u2010-\u2015]`: ‐ ‑ ‒ – — ― (hyphen, non-breaking hyphen, figure dash, en dash, em dash, horizontal bar)
+- `[\u2018-\u201B]`: ' ' ‚ ‛ (left/right single quotes, single low-9 quote, single high-reversed-9 quote)
+- `[\u201C-\u201F]`: " " „ ‟ (left/right double quotes, double low-9 quote, double high-reversed-9 quote)
 
 This is useful when:
 - You prefer ASCII-only text in your music library
@@ -255,10 +258,10 @@ This is useful when:
 - Similar to using the `beets-importreplace` plugin for other fields
 
 **Example transformations:**
-- `O'Brien` → `O'Brien` (U+2019 apostrophe → ASCII)
-- `"The Boss"` → `"The Boss"` (U+201C/U+201D quotes → ASCII)
-- `Jean–Luc` → `Jean-Luc` (U+2013 en dash → ASCII)
-- `Anderson‐Lopez` → `Anderson-Lopez` (U+2010 hyphen → ASCII)
+- `O'Brien` → `O'Brien` (U+2019 → ASCII)
+- `"The Boss"` → `"The Boss"` (U+201C/U+201D → ASCII)
+- `Jean–Luc` → `Jean-Luc` (U+2013 → ASCII)
+- `Anderson‐Lopez` → `Anderson-Lopez` (U+2010 → ASCII)
 
 ## How It Works
 
