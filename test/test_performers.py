@@ -531,6 +531,148 @@ class ExtractPerformersTest(unittest.TestCase):
         self.assertNotIn(' & ', performers)
         self.assertNotIn(', ', performers)
 
+    def test_character_replacements(self):
+        """Test that configured character replacements are applied."""
+        # Configure replacements for unicode characters
+        self.plugin.config['replacements'] = {
+            '\u2019': "'",  # Unicode apostrophe to ASCII
+            '\u201c': '"',  # Unicode left quote to ASCII
+            '\u201d': '"',  # Unicode right quote to ASCII
+            '\u2013': '-',  # En dash to ASCII hyphen
+            '\u2014': '-',  # Em dash to ASCII hyphen
+        }
+
+        recording = {
+            'artist-credit': [
+                {'name': 'O\u2019Brien', 'artist': {'name': "O'Brien"}},
+                {'name': '\u201cThe Boss\u201d', 'artist': {'name': '"The Boss"'}},
+                {'name': 'Jean\u2013Luc', 'artist': {'name': 'Jean–Luc'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should apply replacements
+        self.assertEqual(len(performers), 3)
+        self.assertIn("O'Brien", performers)  # ASCII apostrophe
+        self.assertIn('"The Boss"', performers)  # ASCII quotes
+        self.assertIn('Jean-Luc', performers)  # ASCII hyphen
+        # Should not include unicode versions
+        self.assertNotIn('O\u2019Brien', performers)
+        self.assertNotIn('\u201cThe Boss\u201d', performers)
+        self.assertNotIn('Jean\u2013Luc', performers)
+
+    def test_replacements_empty_config(self):
+        """Test that empty replacements config doesn't affect names."""
+        # No replacements configured
+        self.plugin.config['replacements'] = {}
+
+        recording = {
+            'artist-credit': [
+                {'name': 'O\u2019Brien', 'artist': {'name': "O'Brien"}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should keep unicode characters when no replacements configured
+        self.assertEqual(len(performers), 1)
+        self.assertIn('O\u2019Brien', performers)
+
+    def test_replacements_with_relationships(self):
+        """Test that replacements work with artist-relation-list too."""
+        self.plugin.config['replacements'] = {'\u2019': "'"}
+
+        recording = {
+            'artist-relation-list': [
+                {'type': 'vocal', 'artist': {'name': 'O\u2019Brien'}, 'attributes': ['vocals']},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should apply replacements to relationship artists too
+        self.assertEqual(len(performers), 1)
+        self.assertIn("O'Brien", performers)
+        self.assertNotIn('O\u2019Brien', performers)
+
+    def test_character_range_replacements(self):
+        """Test that character range patterns work correctly."""
+        # Configure replacements using character ranges
+        self.plugin.config['replacements'] = {
+            r'[\u2010-\u2015]': '-',  # All unicode hyphens/dashes
+            r'[\u2018-\u201B]': "'",  # All unicode single quotes
+        }
+
+        recording = {
+            'artist-credit': [
+                {'name': 'Anderson\u2010Lopez', 'artist': {'name': 'Anderson-Lopez'}},  # U+2010
+                {'name': 'Jean\u2013Luc', 'artist': {'name': 'Jean-Luc'}},  # U+2013
+                {'name': 'O\u2019Brien', 'artist': {'name': "O'Brien"}},  # U+2019
+                {'name': '\u2018Quoted\u2019', 'artist': {'name': "'Quoted'"}},  # U+2018, U+2019
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # All unicode characters in ranges should be replaced
+        self.assertEqual(len(performers), 4)
+        self.assertIn('Anderson-Lopez', performers)
+        self.assertIn('Jean-Luc', performers)
+        self.assertIn("O'Brien", performers)
+        self.assertIn("'Quoted'", performers)
+
+    def test_character_range_multiple_in_range(self):
+        """Test that all characters in a range are replaced."""
+        # U+2010-U+2015 covers: ‐ ‑ ‒ – — ―
+        self.plugin.config['replacements'] = {r'[\u2010-\u2015]': '-'}
+
+        recording = {
+            'artist-credit': [
+                {'name': 'Test\u2010One', 'artist': {'name': 'Test-One'}},  # U+2010 hyphen
+                {
+                    'name': 'Test\u2011Two',
+                    'artist': {'name': 'Test-Two'},
+                },  # U+2011 non-breaking hyphen
+                {'name': 'Test\u2012Three', 'artist': {'name': 'Test-Three'}},  # U+2012 figure dash
+                {'name': 'Test\u2013Four', 'artist': {'name': 'Test-Four'}},  # U+2013 en dash
+                {'name': 'Test\u2014Five', 'artist': {'name': 'Test-Five'}},  # U+2014 em dash
+                {'name': 'Test\u2015Six', 'artist': {'name': 'Test-Six'}},  # U+2015 horizontal bar
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # All should be replaced with ASCII hyphen
+        self.assertEqual(len(performers), 6)
+        self.assertIn('Test-One', performers)
+        self.assertIn('Test-Two', performers)
+        self.assertIn('Test-Three', performers)
+        self.assertIn('Test-Four', performers)
+        self.assertIn('Test-Five', performers)
+        self.assertIn('Test-Six', performers)
+
+    def test_mixed_replacements_individual_and_ranges(self):
+        """Test that individual and range replacements can be mixed."""
+        self.plugin.config['replacements'] = {
+            r'[\u2010-\u2015]': '-',  # Range
+            '\u2026': '...',  # Individual character (ellipsis)
+        }
+
+        recording = {
+            'artist-credit': [
+                {'name': 'Jean\u2013Luc', 'artist': {'name': 'Jean-Luc'}},
+                {'name': 'Wait\u2026', 'artist': {'name': 'Wait...'}},
+            ]
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Both types of replacements should work
+        self.assertEqual(len(performers), 2)
+        self.assertIn('Jean-Luc', performers)
+        self.assertIn('Wait...', performers)
+
 
 class FormatPerformersTest(unittest.TestCase):
     """Test cases specifically for _format_performers method."""
