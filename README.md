@@ -78,11 +78,12 @@ performers:
   # Character replacements for normalizing unicode to ASCII (default: {})
   # Example: replace unicode apostrophes and quotes with ASCII equivalents
   replacements:
+    "\u2010": '-'   # Unicode hyphen → ASCII hyphen
+    "\u2013": '-'   # En dash → ASCII hyphen
+    "\u2014": '-'   # Em dash → ASCII hyphen
     "\u2019": "'"   # Unicode apostrophe → ASCII apostrophe
     "\u201c": '"'   # Unicode left quote → ASCII quote
     "\u201d": '"'   # Unicode right quote → ASCII quote
-    "\u2013": '-'   # En dash → ASCII hyphen
-    "\u2014": '-'   # Em dash → ASCII hyphen
 
   # Types of performer relationships to include
   performer_types:
@@ -239,11 +240,12 @@ Replace unicode characters with ASCII equivalents for better compatibility:
 performers:
   auto: true
   replacements:
+    "\u2010": '-'   # Unicode hyphen (U+2010) → ASCII hyphen
+    "\u2013": '-'   # En dash (U+2013) → ASCII hyphen
+    "\u2014": '-'   # Em dash (U+2014) → ASCII hyphen
     "\u2019": "'"   # Unicode apostrophe (U+2019) → ASCII apostrophe
     "\u201c": '"'   # Unicode left quote (U+201C) → ASCII quote
     "\u201d": '"'   # Unicode right quote (U+201D) → ASCII quote
-    "\u2013": '-'   # En dash (U+2013) → ASCII hyphen
-    "\u2014": '-'   # Em dash (U+2014) → ASCII hyphen
 ```
 
 This is useful when:
@@ -253,9 +255,10 @@ This is useful when:
 - Similar to using the `beets-importreplace` plugin for other fields
 
 **Example transformations:**
-- `O'Brien` → `O'Brien`
-- `"The Boss"` → `"The Boss"`
-- `Jean–Luc` → `Jean-Luc`
+- `O'Brien` → `O'Brien` (U+2019 apostrophe → ASCII)
+- `"The Boss"` → `"The Boss"` (U+201C/U+201D quotes → ASCII)
+- `Jean–Luc` → `Jean-Luc` (U+2013 en dash → ASCII)
+- `Anderson‐Lopez` → `Anderson-Lopez` (U+2010 hyphen → ASCII)
 
 ## How It Works
 
