@@ -308,10 +308,6 @@ class PerformersPlugin(BeetsPlugin):
         use_credited_name = self.config['use_credited_name'].get(bool)
         vocal_only = self.config['vocal_only'].get(bool)
 
-        self._log.debug('_extract_performers: use_credited_name={}, vocal_only={}', use_credited_name, vocal_only)
-        self._log.debug('_extract_performers: has artist-credit={}', 'artist-credit' in recording)
-        self._log.debug('_extract_performers: has artist-relation-list={}', 'artist-relation-list' in recording)
-
         # If vocal_only is enabled, check if this is an instrumental track
         # by looking for non-vocal relationships
         skip_artist_credit = False
@@ -321,54 +317,39 @@ class PerformersPlugin(BeetsPlugin):
 
             for relation in recording['artist-relation-list']:
                 rel_type = relation.get('type', '').lower()
-                self._log.debug('_extract_performers: checking relation type={}', rel_type)
                 if 'vocal' in rel_type:
                     has_vocals = True
-                    self._log.debug('_extract_performers: found vocals!')
                     break
                 # Check if there are instrumental/performer relationships
                 if rel_type in ['instrument', 'performer', 'orchestra', 'conductor']:
                     has_non_vocal_performers = True
-                    self._log.debug('_extract_performers: found non-vocal performer')
 
             # Only skip artist-credit if we have evidence it's instrumental
             # (has non-vocal performers but no vocals)
             if has_non_vocal_performers and not has_vocals:
                 skip_artist_credit = True
 
-        self._log.debug('_extract_performers: skip_artist_credit={}', skip_artist_credit)
-
         # First, try artist-credits (this is what shows as track artists on MB)
         # Skip only if we determined the track is instrumental
         if 'artist-credit' in recording and not skip_artist_credit:
-            self._log.debug('_extract_performers: processing artist-credit')
-            if 'artist-credit' in recording:
-                self._log.debug('_extract_performers: artist-credit data: {}', recording['artist-credit'][:3] if len(recording['artist-credit']) > 3 else recording['artist-credit'])
             for credit in recording['artist-credit']:
                 # Only process dict objects; strings are joinphrases (like ' & ')
                 if isinstance(credit, dict):
-                    self._log.debug('_extract_performers: processing credit dict: {}', credit.keys())
                     # Choose between credited name and canonical name
                     if use_credited_name and 'name' in credit:
                         # Use the credited name (e.g., "Ship's Chorus")
                         name = credit['name']
-                        self._log.debug('_extract_performers: using credited name: {}', name)
                     elif 'artist' in credit:
                         # Use the canonical artist name (e.g., "[Disney]")
                         name = credit['artist'].get('name', '')
-                        self._log.debug('_extract_performers: using canonical name: {}', name)
                     else:
                         name = ''
-                        self._log.debug('_extract_performers: no name found in credit')
 
                     if name:
                         # Apply character replacements
                         name = self._apply_replacements(name)
                         if name not in performers:
                             performers.append(name)
-                            self._log.debug('_extract_performers: added performer: {}', name)
-                else:
-                    self._log.debug('_extract_performers: skipping joinphrase: {}', credit)
 
         # If no artist credits, try to get performers from relationships
         if not performers and 'artist-relation-list' in recording:
@@ -395,7 +376,6 @@ class PerformersPlugin(BeetsPlugin):
                     if name not in performers:
                         performers.append(name)
 
-        self._log.debug('_extract_performers: final performers list: {}', performers)
         return performers
 
 
