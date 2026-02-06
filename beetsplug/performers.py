@@ -308,18 +308,30 @@ class PerformersPlugin(BeetsPlugin):
         use_credited_name = self.config['use_credited_name'].get(bool)
         vocal_only = self.config['vocal_only'].get(bool)
 
-        # If vocal_only is enabled, check if there are any vocal relationships first
-        has_vocals = False
+        # If vocal_only is enabled, check if this is an instrumental track
+        # by looking for non-vocal relationships
+        skip_artist_credit = False
         if vocal_only and 'artist-relation-list' in recording:
+            has_vocals = False
+            has_non_vocal_performers = False
+
             for relation in recording['artist-relation-list']:
                 rel_type = relation.get('type', '').lower()
                 if 'vocal' in rel_type:
                     has_vocals = True
                     break
+                # Check if there are instrumental/performer relationships
+                if rel_type in ['instrument', 'performer', 'orchestra', 'conductor']:
+                    has_non_vocal_performers = True
+
+            # Only skip artist-credit if we have evidence it's instrumental
+            # (has non-vocal performers but no vocals)
+            if has_non_vocal_performers and not has_vocals:
+                skip_artist_credit = True
 
         # First, try artist-credits (this is what shows as track artists on MB)
-        # But skip if vocal_only is set and there are no vocals on the track
-        if 'artist-credit' in recording and (not vocal_only or has_vocals):
+        # Skip only if we determined the track is instrumental
+        if 'artist-credit' in recording and not skip_artist_credit:
             for credit in recording['artist-credit']:
                 # Only process dict objects; strings are joinphrases (like ' & ')
                 if isinstance(credit, dict):

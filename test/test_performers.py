@@ -674,24 +674,26 @@ class ExtractPerformersTest(unittest.TestCase):
         self.assertIn('Wait...', performers)
 
     def test_vocal_only_skips_instrumental_artist_credit(self):
-        """Test that vocal_only skips artist-credit when track has no vocals."""
+        """Test that vocal_only skips artist-credit when track has only instrumental performers."""
         # Enable vocal_only mode
         self.plugin.config['vocal_only'] = True
 
-        # Recording with artist-credit but no vocal relationships (instrumental track)
+        # Recording with artist-credit AND instrumental relationships but NO vocals
+        # This is evidence of an instrumental track
         recording = {
             'artist-credit': [
                 {'name': 'David Friedman', 'artist': {'name': 'David Friedman'}},
             ],
             'artist-relation-list': [
-                # Only instrumental relationships, no vocals
+                # Only instrumental relationships, no vocals - evidence it's instrumental
                 {'type': 'instrument', 'artist': {'name': 'David Friedman'}},
+                {'type': 'performer', 'artist': {'name': 'Some Performer'}},
             ],
         }
 
         performers = self.plugin._extract_performers(recording)
 
-        # Should return empty list since no vocals and artist-credit should be skipped
+        # Should return empty list since we have evidence it's instrumental
         self.assertEqual(len(performers), 0)
         self.assertNotIn('David Friedman', performers)
 
@@ -716,6 +718,28 @@ class ExtractPerformersTest(unittest.TestCase):
         # Should use artist-credit since vocals are present
         self.assertEqual(len(performers), 1)
         self.assertIn('Singer Name', performers)
+
+    def test_vocal_only_uses_artist_credit_when_no_relationship_data(self):
+        """Test that vocal_only still uses artist-credit when no relationship data exists."""
+        # Enable vocal_only mode
+        self.plugin.config['vocal_only'] = True
+
+        # Recording with artist-credit but NO artist-relation-list
+        # This is common for many recordings - we can't determine if it's instrumental
+        recording = {
+            'artist-credit': [
+                {'name': 'Ariana Grande', 'artist': {'name': 'Ariana Grande'}},
+                {'name': 'John Legend', 'artist': {'name': 'John Legend'}},
+            ],
+            # No artist-relation-list at all
+        }
+
+        performers = self.plugin._extract_performers(recording)
+
+        # Should still use artist-credit because we have no evidence it's instrumental
+        self.assertEqual(len(performers), 2)
+        self.assertIn('Ariana Grande', performers)
+        self.assertIn('John Legend', performers)
 
 
 class FormatPerformersTest(unittest.TestCase):
